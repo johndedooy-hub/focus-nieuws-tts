@@ -1,8 +1,8 @@
-name: Process and Host Nieuws MP3
+name: Process and Host TTS Nieuws MP3
 
 on:
   schedule:
-    - cron: '*/15 * * * *'   # elk kwartier om :15
+    - cron: '*/15 * * * *'
   workflow_dispatch:
 
 permissions:
@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build-and-commit:
-    runs-on: ubuntu-latest 
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
@@ -19,7 +19,9 @@ jobs:
       - name: Install tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg curl libxml2-utils bc
+          sudo apt-get install -y ffmpeg curl libxml2-utils bc python3 python3-pip
+          python3 -m pip install --upgrade pip
+          pip3 install -U openai-whisper
 
       - name: Download newest MP3 from RSS
         run: |
@@ -36,61 +38,65 @@ jobs:
             echo "Download mislukt"
             exit 1
           fi
-              
-      - name: Process audio (crop + fade)
-      
+
+      - name: Transcribe audio with Whisper Medium
         run: |
-          DURATION=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 raw_nieuws.mp3)
+          python3 - <<'PY'
+import whisper
+model = whisper.load_model("medium")
+result = model.transcribe("raw_nieuws.mp3")
+with open("nieuws.txt", "w", encoding="utf-8") as f:
+    f.write(result["text"].strip())
+PY
 
-          if ! [[ "$DURATION" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
-            echo "Duration error"
-            exit 1
-          fi
-
-          # Jouw vaste crop-tijden
-          CUT_START=5.5
-          CUT_END=$(awk "BEGIN {print $DURATION - 10.9}")  # 5 sec start + 1 sec fade-out
-
-          if (( $(echo "$CUT_END < 1" | bc -l) )); then
-            echo "Audio te kort"
-            exit 1
-          fi
-
-          ffmpeg -y -ss $CUT_START -i raw_nieuws.mp3 -t $CUT_END \
-            -af "afade=t=in:ss=0:d=1,afade=t=out:st=$(awk "BEGIN {print $CUT_END - 1}"):d=1" \
-            Focus_Fantastique_Nieuws_en_Weer.mp3
-
-          rm raw_nieuws.mp3
-          
-      - name: Set MP3 metadata
+      - name: Build TTS audio with Kokoro
         run: |
-          ffmpeg -y -i Focus_Fantastique_Nieuws_en_Weer.mp3 \
-            -metadata artist="Focus Fantastique ANP nieuws" \
-            -metadata album="Focus Fantastique ANP update" \
-            -codec copy Focus_Fantastique_Nieuws_en_Weer_tagged.mp3
+          python3 - <<'PY'
+# Let op: vervang hieronder de import/aanroep als jouw lokale kokoro-client anders heet.
+# Dit script verwacht een werkende kokoro Python client met een TTS.save(text, filename, voice=...) API.
+try:
+    from kokoro import TTS
+except Exception as e:
+    print("Kokoro import failed:", e)
+    raise
 
-          mv Focus_Fantastique_Nieuws_en_Weer_tagged.mp3 Focus_Fantastique_Nieuws_en_Weer.mp3
-          
+intro = "Welkom bij het Focus Fantastique Nieuws, ik ben John Nagtzaam."
+outro = "Dit was het hele nieuws en weer op Focus Fantastique, nu terug naar de muziek."
+
+with open("nieuws.txt", "r", encoding="utf-8") as f:
+    nieuws = f.read().strip()
+
+full_text = f"{intro}\n\n{nieuws}\n\n{outro}"
+
+tts = TTS(voice="af_storm")
+# Als jouw kokoro client andere methode heeft, pas deze regel aan.
+tts.save(full_text, "Focus_Fantastique_tts.mp3")
+PY
+
       - name: Embed cover image
         run: |
-          ffmpeg -y -i Focus_Fantastique_Nieuws_en_Weer.mp3 \
-            -i FocusFantastiqueNieuws.jpg \
-            -map 0:a -map 1:v \
-            -c:a copy -c:v mjpeg \
-            -metadata:s:v title="Album cover" \
-            -metadata:s:v comment="Cover image" \
-            Focus_Fantastique_Nieuws_en_Weer_cover.mp3
+          if [ -f Focus_Fantastique_tts.mp3 ] && [ -f FocusFantastiqueNieuws.jpg ]; then
+            ffmpeg -y -i Focus_Fantastique_tts.mp3 \
+              -i FocusFantastiqueNieuws.jpg \
+              -map 0:a -map 1:v \
+              -c:a copy -c:v mjpeg \
+              -metadata:s:v title="Album cover" \
+              -metadata:s:v comment="Cover image" \
+              Focus_Fantastique_tts_cover.mp3
+            mv Focus_Fantastique_tts_cover.mp3 Focus_Fantastique_tts.mp3
+          else
+            echo "Geen audio of cover gevonden, cover embed overgeslagen"
+          fi
 
-          mv Focus_Fantastique_Nieuws_en_Weer_cover.mp3 Focus_Fantastique_Nieuws_en_Weer.mp3
-          
       - name: Commit and Push update
         run: |
-          if [ -f Focus_Fantastique_Nieuws_en_Weer.mp3 ]; then
+          if [ -f Focus_Fantastique_tts.mp3 ]; then
             git config --global user.name "github-actions[bot]"
             git config --global user.email "github-actions[bot]@users.noreply.github.com"
-            git add Focus_Fantastique_Nieuws_en_Weer.mp3
-            git commit -m "Update Focus Fantastique Nieuws en Weer" || exit 0
+            git add Focus_Fantastique_tts.mp3
+            git commit -m "Update Focus Fantastique TTS Nieuws" || true
             git push
           else
             echo "Geen outputbestand, commit overgeslagen"
           fi
+          
