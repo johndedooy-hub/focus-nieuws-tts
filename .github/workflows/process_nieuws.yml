@@ -63,24 +63,25 @@ jobs:
           tts = TTS(voice="af_storm")
           tts.save(full_text, "Focus_Fantastique_tts.mp3"
           PY
-       
-       - name: Embed cover image
-    run: |
-          if [ -f Focus_Fantastique_tts.mp3 ] && [ -f FocusFantastiqueNieuws.jpg ]; then
-            ffmpeg -y -i Focus_Fantastique_tts.mp3 \
-              -i FocusFantastiqueNieuws.jpg \
+        
+      - name: Embed cover image
+       run: |
+             if [ -f Focus_Fantastique_tts.mp3 ] && [ -f FocusFantastiqueNieuws.jpg ]; then
+             ffmpeg -y -i Focus_Fantastique_tts.mp3 \
+             -i FocusFantastiqueNieuws.jpg \
               -map 0:a -map 1:v \
               -c:a copy -c:v mjpeg \
               -metadata:s:v title="Album cover" \
               -metadata:s:v comment="Cover image" \
               Focus_Fantastique_tts_cover.mp3
-            mv Focus_Fantastique_tts_cover.mp3 Focus_Fantastique_tts.mp3
-          else
-            echo "Geen audio of cover gevonden, cover embed overgeslagen"
-          fi
+              mv Focus_Fantastique_tts_cover.mp3 Focus_Fantastique_tts.mp3
+              
+              else
+              echo "Geen audio of cover gevonden, cover embed overgeslagen"
+             fi
           
-          - name: Commit and Push update
-          run: |
+      - name: Commit and Push update
+        run: |
           if [ -f Focus_Fantastique_tts.mp3 ]; then
             git config --global user.name "github-actions[bot]"
             git config --global user.email "github-actions[bot]@users.noreply.github.com"
