@@ -35,7 +35,7 @@ jobs:
       - name: Install Python packages
         run: |
           python3 -m pip install --upgrade pip
-          # install whisper, kokoro (if available), and a reliable fallback gTTS
+          # whisper is large — installing kokoro and gTTS for TTS; adjust if kokoro is not on PyPI
           pip3 install -U openai-whisper kokoro gTTS || true
 
       - name: Download newest MP3 from RSS
@@ -49,66 +49,114 @@ jobs:
             exit 1
           fi
 
-      - name: Transcribe audio with Whisper Medium
+      - name: Trim ads (remove first 5s and last 5.9s)
+        run: |
+          if [ ! -s raw_nieuws.mp3 ]; then
+            echo "raw_nieuws.mp3 not found or empty"
+            exit 1
+          fi
+
+          DURATION=$(ffprobe -v error -show_entries format=duration -of csv=p=0 raw_nieuws.mp3)
+          echo "Duration: $DURATION"
+
+          END=$(python3 - <<'PY'
+d = float("""$DURATION""")
+end = d - 5.9
+print("{:.3f}".format(end))
+PY
+)
+          IS_TOO_SHORT=$(python3 - <<'PY'
+d = float("""$DURATION""")
+print("yes" if d <= 10.9 else "no")
+PY
+)
+          if [ "$IS_TOO_SHORT" = "yes" ]; then
+            echo "Audio too short to safely trim (<= 10.9s). Using original file."
+            cp raw_nieuws.mp3 trimmed_nieuws.mp3
+          else
+            echo "Trimming from 5s to $END s"
+            ffmpeg -hide_banner -loglevel error -i raw_nieuws.mp3 -ss 5 -to "$END" -c:a libmp3lame -q:a 2 trimmed_nieuws.mp3
+            if [ ! -s trimmed_nieuws.mp3 ]; then
+              echo "Trimming failed — falling back to original"
+              cp raw_nieuws.mp3 trimmed_nieuws.mp3
+            fi
+          fi
+          ls -lh trimmed_nieuws.mp3 || true
+
+      - name: Transcribe trimmed audio with Whisper Medium
         run: |
           python3 - <<'PY'
-          import whisper
-          model = whisper.load_model("medium")
-          result = model.transcribe("raw_nieuws.mp3")
-          with open("nieuws.txt", "w", encoding="utf-8") as f:
-              f.write(result.get("text", "").strip())
-          PY
+import whisper
+model = whisper.load_model("medium")
+result = model.transcribe("trimmed_nieuws.mp3")
+with open("nieuws.txt", "w", encoding="utf-8") as f:
+    f.write(result.get("text", "").strip())
+PY
 
-      - name: Build TTS audio (kokoro preferred, gTTS fallback) + gentle vocal shaping
+      - name: Remove leading "bnr update" from transcription
+        run: |
+          python3 - <<'PY'
+import re, sys
+try:
+    with open("nieuws.txt", "r", encoding="utf-8") as f:
+        text = f.read()
+except FileNotFoundError:
+    print("nieuws.txt not found; skipping cleanup")
+    sys.exit(0)
+new = re.sub(r'^\s*(bnr\s+update[:\-\s]*)', '', text, count=1, flags=re.I).strip()
+if new != text.strip():
+    print("Removed leading 'bnr update'")
+with open("nieuws.txt", "w", encoding="utf-8") as f:
+    f.write(new)
+PY
+
+      - name: Build TTS audio (kokoro preferred, gTTS fallback) + gentle shaping
         env:
           KOKORO_API_KEY: ${{ secrets.KOKORO_API_KEY }}
           KOKORO_VOICE: ${{ env.KOKORO_VOICE }}
         run: |
           python3 - <<'PY'
-          import os, sys
+import os, sys
 
-          # Read the transcribed text
-          with open("nieuws.txt", "r", encoding="utf-8") as f:
-              nieuws = f.read().strip()
+try:
+    with open("nieuws.txt", "r", encoding="utf-8") as f:
+        nieuws = f.read().strip()
+except FileNotFoundError:
+    print("nieuws.txt not found; nothing to speak")
+    sys.exit(1)
 
-          intro = "Welkom bij het Focus Fantastique Update Nieuws."
-          outro = "Terug naar de lekkerste muziek, tot over een half uur."
-          full_text = f"{intro}\n\n{nieuws}\n\n{outro}"
+intro = "Welkom bij het Focus Fantastique Update Nieuws."
+outro = "Terug naar de lekkerste muziek, tot over een half uur."
+full_text = f"{intro}\n\n{nieuws}\n\n{outro}"
 
-          out_raw = "Focus_Fantastique_tts_raw.mp3"
-          kokoro_api_key = os.getenv("KOKORO_API_KEY", "")
-          used = False
+out_raw = "Focus_Fantastique_tts_raw.mp3"
+kokoro_api_key = os.getenv("KOKORO_API_KEY", "").strip()
+used = False
 
-          # Try Kokoro only if a real API key is present (no hardcoded defaults)
-          if kokoro_api_key:
-              try:
-                  from kokoro import TTS
-                  voice = os.getenv("KOKORO_VOICE", "af_storm")
-                  tts = TTS(voice=voice)
-                  tts.save(full_text, out_raw)
-                  print("Saved raw TTS using kokoro ->", out_raw)
-                  used = True
-              except Exception as e:
-                  print("kokoro failed:", e)
-                  used = False
+if kokoro_api_key:
+    try:
+        from kokoro import TTS
+        voice = os.getenv("KOKORO_VOICE", "af_storm")
+        tts = TTS(voice=voice)
+        tts.save(full_text, out_raw)
+        print("Saved raw TTS using kokoro ->", out_raw)
+        used = True
+    except Exception as e:
+        print("kokoro failed (will fallback):", e)
+        used = False
 
-          # Fallback to gTTS if kokoro not used / failed
-          if not used:
-              try:
-                  from gtts import gTTS
-                  gTTS(full_text, lang='nl').save(out_raw)
-                  print("Saved raw TTS using gTTS ->", out_raw)
-                  used = True
-              except Exception as e:
-                  print("gTTS failed:", e)
-                  sys.exit(1)
-          PY
+if not used:
+    try:
+        from gtts import gTTS
+        gTTS(full_text, lang='nl').save(out_raw)
+        print("Saved raw TTS using gTTS ->", out_raw)
+        used = True
+    except Exception as e:
+        print("gTTS failed:", e)
+        sys.exit(1)
+PY
 
-          # Gentle post-processing with ffmpeg:
-          # - EQ: boost low-mid for warmth, mild presence boost, tame harsh highs
-          # - Compression: gentle glue, not heavy
-          # - Dynamic normalization: consistent levels
-          # No pitch shifting and no echo/doubling (these caused the 'smurf' and double effect)
+          # Gentle post-processing with ffmpeg (no pitch-shift, no echo/doubling)
           ffmpeg -y -i Focus_Fantastique_tts_raw.mp3 -af "equalizer=f=120:t=q:w=1:g=3,equalizer=f=700:t=q:w=1:g=2,equalizer=f=4000:t=q:w=1:g=-2,acompressor=threshold=-18dB:ratio=3:attack=10:release=200,dynaudnorm" Focus_Fantastique_tts.mp3
 
       - name: Embed cover image
