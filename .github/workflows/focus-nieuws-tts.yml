@@ -36,7 +36,7 @@ jobs:
 
       - name: Transcribe audio with Whisper Medium
         run: |
-          python3 - <<'PY'
+         python3 - <<'PY'
           import whisper
           model = whisper.load_model("medium")
           result = model.transcribe("raw_nieuws.mp3")
