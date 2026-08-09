@@ -90,7 +90,7 @@ jobs:
 
           # Calculate trim points
           trim_start_ms = 5000
-          trim_end_ms = int(7.9 * 1000)
+          trim_end_ms = int(12.9 * 1000)
           total_duration = len(audio)
           trim_end_point = total_duration - trim_end_ms
 
