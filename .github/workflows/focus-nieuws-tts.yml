@@ -1,4 +1,4 @@
-name: Focus Nieuws TTS
+name: Process Nieuws Transcript
 
 on:
   schedule:
@@ -9,14 +9,14 @@ permissions:
   contents: write
 
 jobs:
-  build-and-commit:
+  transcribe:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install tools
+      - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg curl libxml2-utils python3 python3-pip
@@ -37,58 +37,22 @@ jobs:
       - name: Transcribe audio with Whisper Medium
         run: |
           python3 - <<'PY'
-import whisper
-model = whisper.load_model("medium")
-result = model.transcribe("raw_nieuws.mp3")
-with open("nieuws.txt", "w", encoding="utf-8") as f:
-    f.write(result.get("text","").strip())
-PY
-
-      - name: Build TTS audio with Kokoro
+          import whisper
+          model = whisper.load_model("medium")
+          result = model.transcribe("raw_nieuws.mp3")
+          with open("nieuws.txt", "w", encoding="utf-8") as f: 
+          f.write(result.get("text", "").strip() 
+          PY
+          
+      - name: Save transcript to repo
         run: |
-          python3 - <<'PY'
-try:
-    from kokoro import TTS
-except Exception as e:
-    print("Kokoro import failed:", e)
-    raise
-
-intro = "Welkom bij het Focus Fantastique Nieuws, ik ben John Nagtzaam."
-outro = "Dit was het hele nieuws en weer op Focus Fantastique, nu terug naar de muziek."
-
-with open("nieuws.txt", "r", encoding="utf-8") as f:
-    nieuws = f.read().strip()
-
-full_text = f"{intro}\n\n{nieuws}\n\n{outro}"
-
-tts = TTS(voice="af_storm")
-tts.save(full_text, "Focus_Fantastique_tts.mp3")
-PY
-
-      - name: Embed cover image
-        run: |
-          if [ -f Focus_Fantastique_tts.mp3 ] && [ -f FocusFantastiqueNieuws.jpg ]; then
-            ffmpeg -y -i Focus_Fantastique_tts.mp3 \
-              -i FocusFantastiqueNieuws.jpg \
-              -map 0:a -map 1:v \
-              -c:a copy -c:v mjpeg \
-              -metadata:s:v title="Album cover" \
-              -metadata:s:v comment="Cover image" \
-              Focus_Fantastique_tts_cover.mp3
-            mv Focus_Fantastique_tts_cover.mp3 Focus_Fantastique_tts.mp3
-          else
-            echo "Geen audio of cover gevonden, cover embed overgeslagen"
-          fi
-
-      - name: Commit and Push update
-        run: |
-          if [ -f Focus_Fantastique_tts.mp3 ]; then
-            git config --global user.name "github-actions[bot]"
-            git config --global user.email "github-actions[bot]@users.noreply.github.com"
-            git add Focus_Fantastique_tts.mp3
-            git commit -m "Update Focus Fantastique TTS Nieuws" || true
-            git push || true
-          else
-            echo "Geen outputbestand, commit overgeslagen"
+         if [ -f nieuws.txt ]; then
+         git config --global user.name "github-actions[bot]"
+         git config --global user.email "github-actions[bot]@users.noreply.github.com"
+         git add nieuws.txt
+         git commit -m "Update transcript nieuws" || true
+         git push || true
+         else
+         echo "Geen transcript gevonden"
           fi
           
