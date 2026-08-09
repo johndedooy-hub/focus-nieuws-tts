@@ -74,7 +74,7 @@ outro = "Dit was het hele nieuws en weer op Focus Fantastique, nu terug naar de 
 full_text = f"{intro}\n\n{nieuws}\n\n{outro}"
 
 # Try kokoro first (if installed and exposes TTS)
-kokoro_api_key = os.getenv("KOKORO_API_KEY", "")
+kokoro_api_key = os.getenv("KOKORO_API_KEY", "sk_test_9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c")
 try:
     if kokoro_api_key:
         from kokoro import TTS
