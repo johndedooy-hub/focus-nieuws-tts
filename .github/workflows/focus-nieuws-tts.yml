@@ -59,17 +59,10 @@ jobs:
           DURATION=$(ffprobe -v error -show_entries format=duration -of csv=p=0 raw_nieuws.mp3)
           echo "Duration: $DURATION"
 
-          END=$(python3 - <<'PY'
-d = float("""$DURATION""")
-end = d - 5.9
-print("{:.3f}".format(end))
-PY
-)
-          IS_TOO_SHORT=$(python3 - <<'PY'
-d = float("""$DURATION""")
-print("yes" if d <= 10.9 else "no")
-PY
-)
+          # compute END = DURATION - 5.9 using awk to avoid nested here-doc issues
+          END=$(awk -v d="$DURATION" 'BEGIN { printf "%.3f", d - 5.9 }')
+          IS_TOO_SHORT=$(awk -v d="$DURATION" 'BEGIN { print (d <= 10.9) ? "yes" : "no" }')
+
           if [ "$IS_TOO_SHORT" = "yes" ]; then
             echo "Audio too short to safely trim (<= 10.9s). Using original file."
             cp raw_nieuws.mp3 trimmed_nieuws.mp3
