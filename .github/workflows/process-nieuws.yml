@@ -42,7 +42,7 @@ jobs:
           result = model.transcribe("raw_nieuws.mp3")
           with open("nieuws.txt", "w", encoding="utf-8") as f:
           f.write(result.get("text","").strip())
-          PY
+          py
 
       - name: Save transcript to repo
         run: |
