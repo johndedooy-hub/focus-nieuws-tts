@@ -37,12 +37,12 @@ jobs:
       - name: Transcribe audio with Whisper Medium
         run: |
           python3 - <<'PY'
-import whisper
-model = whisper.load_model("medium")
-result = model.transcribe("raw_nieuws.mp3")
-with open("nieuws.txt", "w", encoding="utf-8") as f:
-    f.write(result.get("text","").strip())
-PY
+          import whisper
+          model = whisper.load_model("medium")
+          result = model.transcribe("raw_nieuws.mp3")
+          with open("nieuws.txt", "w", encoding="utf-8") as f:
+          f.write(result.get("text","").strip())
+          PY
 
       - name: Save transcript to repo
         run: |
