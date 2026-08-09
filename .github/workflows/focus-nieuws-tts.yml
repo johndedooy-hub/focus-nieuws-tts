@@ -11,17 +11,34 @@ permissions:
 jobs:
   build-and-commit:
     runs-on: ubuntu-latest
+    env:
+      # Put the real values in the repository/organization Secrets, do NOT keep credentials here.
+      KOKORO_API_KEY: ${{ secrets.KOKORO_API_KEY }}
+      KOKORO_VOICE: af_storm
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          fetch-depth: 0
 
-      - name: Install tools
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install system packages
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg curl libxml2-utils python3 python3-pip
+          sudo apt-get install -y ffmpeg libxml2-utils curl
+
+      - name: Install Python packages
+        run: |
           python3 -m pip install --upgrade pip
-          pip3 install -U openai-whisper
+          pip3 install -U openai-whisper kokoro || true
+          # If 'kokoro' is a private package or has a different PyPI name, install it via the appropriate command.
 
       - name: Download newest MP3 from RSS
         run: |
@@ -35,6 +52,72 @@ jobs:
           fi
 
       - name: Transcribe audio with Whisper Medium
+        run: |
+          python3 - <<'PY'
+import whisper
+model = whisper.load_model("medium")
+result = model.transcribe("raw_nieuws.mp3")
+with open("nieuws.txt", "w", encoding="utf-8") as f:
+    f.write(result.get("text", "").strip())
+PY
+
+      - name: Build TTS audio with Kokoro
+        env:
+          KOKORO_API_KEY: ${{ secrets.KOKORO_API_KEY }}
+        run: |
+          python3 - <<'PY'
+import os
+try:
+    from kokoro import TTS
+except Exception as e:
+    print("Kokoro import failed:", e)
+    raise
+
+intro = "Welkom bij het Focus Fantastique Nieuws, ik ben John Nagtzaam."
+outro = "Dit was het hele nieuws en weer op Focus Fantastique, nu terug naar de muziek."
+
+with open("nieuws.txt", "r", encoding="utf-8") as f:
+    nieuws = f.read().strip()
+
+full_text = f"{intro}\n\n{nieuws}\n\n{outro}"
+
+voice = os.getenv("KOKORO_VOICE", "af_storm")
+tts = TTS(voice=voice)
+# If TTS() needs an API key, make sure the kokoro library reads KOKORO_API_KEY env var or adjust accordingly.
+tts.save(full_text, "Focus_Fantastique_tts.mp3")
+PY
+
+      - name: Embed cover image
+        run: |
+          if [ -f Focus_Fantastique_tts.mp3 ] && [ -f FocusFantastiqueNieuws.jpg ]; then
+            ffmpeg -y -i Focus_Fantastique_tts.mp3 \
+              -i FocusFantastiqueNieuws.jpg \
+              -map 0:a -map 1:v \
+              -c:a copy -c:v mjpeg \
+              -metadata:s:v title="Album cover" \
+              -metadata:s:v comment="Cover image" \
+              Focus_Fantastique_tts_cover.mp3
+            mv Focus_Fantastique_tts_cover.mp3 Focus_Fantastique_tts.mp3
+          else
+            echo "Geen audio of cover gevonden, cover embed overgeslagen"
+          fi
+
+      - name: Commit and Push update
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -f Focus_Fantastique_tts.mp3 ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add Focus_Fantastique_tts.mp3
+            git commit -m "Update Focus Fantastique TTS Nieuws" || true
+            # Use the GITHUB_TOKEN for an authenticated push
+            git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git
+            # push to the current ref (branch). If ref is a tag or other ref adjust as needed.
+            git push origin HEAD:${GITHUB_REF} || true
+          else
+            echo "Geen outputbestand, commit overgeslagen"
+          fi      - name: Transcribe audio with Whisper Medium
         run: |
           python3 - <<'PY'
 import whisper
