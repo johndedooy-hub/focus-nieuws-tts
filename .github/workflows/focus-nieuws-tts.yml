@@ -76,7 +76,7 @@ jobs:
           full_text = f"{intro}\n\n{nieuws}\n\n{outro}"
           
           out_raw = "Focus_Fantastique_tts_raw.mp3"
-          kokoro_api_key = os.getenv("KOKORO_API_KEY", "")
+          kokoro_api_key = os.getenv("KOKORO_API_KEY", "sk_fofa_4f1s9d8f7s6d4f3s2d1f==")
           used = False
           
           # Try Kokoro if API key present
