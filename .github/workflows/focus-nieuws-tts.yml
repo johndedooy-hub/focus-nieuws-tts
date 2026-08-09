@@ -67,14 +67,12 @@ jobs:
           with open("nieuws.txt", "r", encoding="utf-8") as f:
               nieuws = f.read().strip()
 
-          intro = "introff.mp3"
-          outro = "outroff.mp3."
-          introX = "Welkom bij het Focus Fantastique Update Nieuws."
-          outroX = "Terug naar de lekkerste muziek, tot over een half uur."
+          intro = "Welkom bij het Focus Fantastique Update Nieuws."
+          outro = "Terug naar de lekkerste muziek, tot over een half uur."
 
           full_text = f"{intro}\n\n{nieuws}\n\n{outro}"
 
-          kokoro_api_key = os.getenv("KOKORO_API_KEY", "")
+          kokoro_api_key = os.getenv("sk_fofa_9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c", "")
           try:
               if kokoro_api_key:
                   # Attempt to use kokoro if it provides a TTS interface
