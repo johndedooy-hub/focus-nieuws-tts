@@ -59,27 +59,27 @@ jobs:
               f.write(result.get("text", "").strip())
           PY
 
-      - name: Build TTS audio (kokoro preferred, gTTS fallback) + vocal processing
+      - name: Build TTS audio (kokoro preferred, gTTS fallback) + gentle vocal shaping
         env:
           KOKORO_API_KEY: ${{ secrets.KOKORO_API_KEY }}
           KOKORO_VOICE: ${{ env.KOKORO_VOICE }}
         run: |
           python3 - <<'PY'
           import os, sys
-          
+
           # Read the transcribed text
           with open("nieuws.txt", "r", encoding="utf-8") as f:
               nieuws = f.read().strip()
-          
+
           intro = "Welkom bij het Focus Fantastique Update Nieuws."
           outro = "Terug naar de lekkerste muziek, tot over een half uur."
           full_text = f"{intro}\n\n{nieuws}\n\n{outro}"
-          
+
           out_raw = "Focus_Fantastique_tts_raw.mp3"
-          kokoro_api_key = os.getenv("KOKORO_API_KEY", "sk_fofa_4f1s9d8f7s6d4f3s2d1f==")
+          kokoro_api_key = os.getenv("KOKORO_API_KEY", "")
           used = False
-          
-          # Try Kokoro if API key present
+
+          # Try Kokoro only if a real API key is present (no hardcoded defaults)
           if kokoro_api_key:
               try:
                   from kokoro import TTS
@@ -91,7 +91,7 @@ jobs:
               except Exception as e:
                   print("kokoro failed:", e)
                   used = False
-          
+
           # Fallback to gTTS if kokoro not used / failed
           if not used:
               try:
@@ -104,11 +104,12 @@ jobs:
                   sys.exit(1)
           PY
 
-          # Post-process with ffmpeg to produce a deeper, more dynamic, human-like male tone:
-          # - lower pitch slightly (asetrate) then resample and correct tempo (atempo)
-          # - boost low mids, reduce harsh highs
-          # - apply gentle compression, dynamic normalization, and a subtle echo (space)
-          ffmpeg -y -i Focus_Fantastique_tts_raw.mp3 -af "asetrate=44100*0.86,aresample=44100,atempo=1.03,equalizer=f=120:t=q:w=1:g=5,equalizer=f=500:t=q:w=1:g=2,equalizer=f=4000:t=q:w=1:g=-3,acompressor=threshold=-18dB:ratio=4:attack=5:release=200,dynaudnorm,aecho=0.6:0.6:1000:0.25" Focus_Fantastique_tts.mp3
+          # Gentle post-processing with ffmpeg:
+          # - EQ: boost low-mid for warmth, mild presence boost, tame harsh highs
+          # - Compression: gentle glue, not heavy
+          # - Dynamic normalization: consistent levels
+          # No pitch shifting and no echo/doubling (these caused the 'smurf' and double effect)
+          ffmpeg -y -i Focus_Fantastique_tts_raw.mp3 -af "equalizer=f=120:t=q:w=1:g=3,equalizer=f=700:t=q:w=1:g=2,equalizer=f=4000:t=q:w=1:g=-2,acompressor=threshold=-18dB:ratio=3:attack=10:release=200,dynaudnorm" Focus_Fantastique_tts.mp3
 
       - name: Embed cover image
         run: |
