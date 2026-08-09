@@ -13,7 +13,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       KOKORO_VOICE: af_storm
-      # GITHUB_TOKEN is provided by GitHub automatically; also available as secrets.GITHUB_TOKEN
 
     steps:
       - name: Checkout repository
@@ -36,7 +35,7 @@ jobs:
         run: |
           python3 -m pip install --upgrade pip
           pip3 install -U openai-whisper kokoro || true
-          # If 'kokoro' has a different install command, replace the line above.
+          # Replace 'kokoro' with the correct package name if needed.
 
       - name: Download newest MP3 from RSS
         run: |
@@ -52,11 +51,11 @@ jobs:
       - name: Transcribe audio with Whisper Medium
         run: |
           python3 - <<'PY'
-          import whisper
-          model = whisper.load_model("medium")
-          result = model.transcribe("raw_nieuws.mp3")
-          with open("nieuws.txt", "w", encoding="utf-8") as f:
-          f.write(result.get("text", "").strip())
+import whisper
+model = whisper.load_model("medium")
+result = model.transcribe("raw_nieuws.mp3")
+with open("nieuws.txt", "w", encoding="utf-8") as f:
+    f.write(result.get("text", "").strip())
 PY
 
       - name: Build TTS audio with Kokoro
@@ -81,12 +80,12 @@ full_text = f"{intro}\n\n{nieuws}\n\n{outro}"
 
 voice = os.getenv("KOKORO_VOICE", "af_storm")
 tts = TTS(voice=voice)
-# If TTS requires an API key explicitly, the kokoro library should read KOKORO_API_KEY from env.
+# If the kokoro library needs the API key explicitly, ensure it reads KOKORO_API_KEY from env.
 tts.save(full_text, "Focus_Fantastique_tts.mp3")
 PY
 
-  - name: Embed cover image
-  run: |
+      - name: Embed cover image
+        run: |
           if [ -f Focus_Fantastique_tts.mp3 ] && [ -f FocusFantastiqueNieuws.jpg ]; then
             ffmpeg -y -i Focus_Fantastique_tts.mp3 \
               -i FocusFantastiqueNieuws.jpg \
@@ -99,24 +98,24 @@ PY
           else
             echo "Geen audio of cover gevonden, cover embed overgeslagen"
           fi
-          
-          - name: Commit and Push update
-          env:
+
+      - name: Commit and Push update
+        env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          run: |
-              if [ -f Focus_Fantastique_tts.mp3 ]; then
-              git config user.name "github-actions[bot]"
-              git config user.email "github-actions[bot]@users.noreply.github.com"
-              git add Focus_Fantastique_tts.mp3
-              git commit -m "Update Focus Fantastique TTS Nieuws" || echo "no changes to commit"
-             # Authenticate using GITHUB_TOKEN and push back to the branch that triggered the workflow
-              git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git
-              BRANCH="${GITHUB_REF#refs/heads/}"
-             # If BRANCH is empty (rare for some ref types), fallback to main
-              if [ -z "$BRANCH" ]; then
+        run: |
+          if [ -f Focus_Fantastique_tts.mp3 ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add Focus_Fantastique_tts.mp3
+            git commit -m "Update Focus Fantastique TTS Nieuws" || echo "no changes to commit"
+            # Use the GITHUB_TOKEN for an authenticated push
+            git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git
+            BRANCH="${GITHUB_REF#refs/heads/}"
+            if [ -z "$BRANCH" ]; then
               BRANCH="main"
-             fi
-             git push origin HEAD:"$BRANCH" || echo "git push failed"
-             else
-             echo "Geen outputbestand, commit overgeslagen"
-             fi
+            fi
+            git push origin HEAD:"$BRANCH" || echo "git push failed"
+          else
+            echo "Geen outputbestand, commit overgeslagen"
+          fi
+          
