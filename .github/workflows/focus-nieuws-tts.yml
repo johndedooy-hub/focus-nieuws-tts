@@ -67,8 +67,10 @@ jobs:
           with open("nieuws.txt", "r", encoding="utf-8") as f:
               nieuws = f.read().strip()
 
-          intro = "Welkom bij het Focus Fantastique Update Nieuws."
-          outro = "Terug naar de lekkerste muziek, tot over een half uur."
+          intro = "introff.mp3"
+          outro = "outroff.mp3."
+          introX = "Welkom bij het Focus Fantastique Update Nieuws."
+          outroX = "Terug naar de lekkerste muziek, tot over een half uur."
 
           full_text = f"{intro}\n\n{nieuws}\n\n{outro}"
 
