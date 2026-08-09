@@ -162,4 +162,33 @@ PY
       - name: Embed cover image
         run: |
           if [ -f Focus_Fantastique_tts.mp3 ] && [ -f FocusFantastiqueNieuws.jpg ]; then
-            ffmpeg -y -i Focus_Fantastique](#)
+            ffmpeg -y -i Focus_Fantastique_tts.mp3 \
+              -i FocusFantastiqueNieuws.jpg \
+              -map 0:a -map 1:v \
+              -c:a copy -c:v mjpeg \
+              -metadata:s:v title="Album cover" \
+              -metadata:s:v comment="Cover image" \
+              Focus_Fantastique_tts_cover.mp3
+            mv Focus_Fantastique_tts_cover.mp3 Focus_Fantastique_tts.mp3
+          else
+            echo "Geen audio of cover gevonden, cover embed overgeslagen"
+          fi
+
+      - name: Commit and Push update
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -f Focus_Fantastique_tts.mp3 ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add Focus_Fantastique_tts.mp3
+            git commit -m "Update Focus Fantastique TTS Nieuws" || echo "no changes to commit"
+            git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git
+            BRANCH="${GITHUB_REF#refs/heads/}"
+            if [ -z "$BRANCH" ]; then
+              BRANCH="main"
+            fi
+            git push origin HEAD:"$BRANCH" || echo "git push failed"
+          else
+            echo "Geen outputbestand, commit overgeslagen"
+          fi
