@@ -13,6 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       KOKORO_VOICE: af_storm
+      KOKORO_API_KEY: ${{ secrets.KOKORO_API_KEY }}
 
     steps:
       - name: Checkout repository
@@ -55,50 +56,48 @@ jobs:
           model = whisper.load_model("medium")
           result = model.transcribe("raw_nieuws.mp3")
           with open("nieuws.txt", "w", encoding="utf-8") as f:
-          f.write(result.get("text", "").strip())
+              f.write(result.get("text", "").strip())
           PY
 
       - name: Build TTS audio (kokoro preferred, gTTS fallback)
-        env:
-          KOKORO_API_KEY: ${{ secrets.KOKORO_API_KEY }}
-          KOKORO_VOICE: ${{ env.KOKORO_VOICE }}
         run: |
           python3 - <<'PY'
           import os, sys
-with open("nieuws.txt", "r", encoding="utf-8") as f:
-    nieuws = f.read().strip()
+
+          with open("nieuws.txt", "r", encoding="utf-8") as f:
+              nieuws = f.read().strip()
 
           intro = "Welkom bij het Focus Fantastique Nieuws, ik ben John Nagtzaam."
           outro = "Dit was het hele nieuws en weer op Focus Fantastique, nu terug naar de muziek."
 
           full_text = f"{intro}\n\n{nieuws}\n\n{outro}"
-          
-          # Try kokoro first (if installed and exposes TTS)
-kokoro_api_key = os.getenv("KOKORO_API_KEY", "sk_fofa_9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c")
-    try:
-if kokoro_api_key:
-           from kokoro import TTS
-           voice = os.getenv("KOKORO_VOICE", "af_storm")
-           tts = TTS(voice=voice)
-           tts.save(full_text, "Focus_Fantastique_tts.mp3")
-           print("Saved TTS using kokoro.TTS")
-else:
-           raise Exception("KOKORO_API_KEY not set; skipping kokoro")
-except Exception as e:
-    print("kokoro TTS unavailable or failed:", e)
-    # Fallback to gTTS (Google) — supports Dutch 'nl'
-try:
-    from gtts import gTTS
-    t = gTTS(full_text, lang='nl')
-    t.save("Focus_Fantastique_tts.mp3"
-    print("Saved TTS using gTTS fallback")
- except Exception as e2:
-    print("gTTS fallback also failed:", e2)
-    sys.exit(1)
-PY
+
+          kokoro_api_key = os.getenv("KOKORO_API_KEY", "")
+          try:
+              if kokoro_api_key:
+                  # Attempt to use kokoro if it provides a TTS interface
+                  from kokoro import TTS
+                  voice = os.getenv("KOKORO_VOICE", "af_storm")
+                  tts = TTS(voice=voice)
+                  tts.save(full_text, "Focus_Fantastique_tts.mp3")
+                  print("Saved TTS using kokoro.TTS")
+              else:
+                  raise Exception("KOKORO_API_KEY not set; skipping kokoro")
+          except Exception as e:
+              print("kokoro TTS unavailable or failed:", e)
+              # Fallback to gTTS (Google) — supports Dutch 'nl'
+              try:
+                  from gtts import gTTS
+                  t = gTTS(full_text, lang='nl')
+                  t.save("Focus_Fantastique_tts.mp3")
+                  print("Saved TTS using gTTS fallback")
+              except Exception as e2:
+                  print("gTTS fallback also failed:", e2)
+                  sys.exit(1)
+          PY
 
       - name: Embed cover image
-         run: |
+        run: |
           if [ -f Focus_Fantastique_tts.mp3 ] && [ -f FocusFantastiqueNieuws.jpg ]; then
             ffmpeg -y -i Focus_Fantastique_tts.mp3 \
               -i FocusFantastiqueNieuws.jpg \
@@ -112,7 +111,7 @@ PY
             echo "Geen audio of cover gevonden, cover embed overgeslagen"
           fi
 
-         - name: Commit and Push update
+      - name: Commit and Push update
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
