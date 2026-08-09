@@ -59,42 +59,56 @@ jobs:
               f.write(result.get("text", "").strip())
           PY
 
-      - name: Build TTS audio (kokoro preferred, gTTS fallback)
+      - name: Build TTS audio (kokoro preferred, gTTS fallback) + vocal processing
+        env:
+          KOKORO_API_KEY: ${{ secrets.KOKORO_API_KEY }}
+          KOKORO_VOICE: ${{ env.KOKORO_VOICE }}
         run: |
           python3 - <<'PY'
           import os, sys
-
+          
+          # Read the transcribed text
           with open("nieuws.txt", "r", encoding="utf-8") as f:
               nieuws = f.read().strip()
-
+          
           intro = "Welkom bij het Focus Fantastique Update Nieuws."
           outro = "Terug naar de lekkerste muziek, tot over een half uur."
-
           full_text = f"{intro}\n\n{nieuws}\n\n{outro}"
-
-          kokoro_api_key = os.getenv("sk_fofa_9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c", "")
-          try:
-              if kokoro_api_key:
-                  # Attempt to use kokoro if it provides a TTS interface
+          
+          out_raw = "Focus_Fantastique_tts_raw.mp3"
+          kokoro_api_key = os.getenv("KOKORO_API_KEY", "")
+          used = False
+          
+          # Try Kokoro if API key present
+          if kokoro_api_key:
+              try:
                   from kokoro import TTS
                   voice = os.getenv("KOKORO_VOICE", "af_storm")
                   tts = TTS(voice=voice)
-                  tts.save(full_text, "Focus_Fantastique_tts.mp3")
-                  print("Saved TTS using kokoro.TTS")
-              else:
-                  raise Exception("KOKORO_API_KEY not set; skipping kokoro")
-          except Exception as e:
-              print("kokoro TTS unavailable or failed:", e)
-              # Fallback to gTTS (Google) — supports Dutch 'nl'
+                  tts.save(full_text, out_raw)
+                  print("Saved raw TTS using kokoro ->", out_raw)
+                  used = True
+              except Exception as e:
+                  print("kokoro failed:", e)
+                  used = False
+          
+          # Fallback to gTTS if kokoro not used / failed
+          if not used:
               try:
                   from gtts import gTTS
-                  t = gTTS(full_text, lang='nl')
-                  t.save("Focus_Fantastique_tts.mp3")
-                  print("Saved TTS using gTTS fallback")
-              except Exception as e2:
-                  print("gTTS fallback also failed:", e2)
+                  gTTS(full_text, lang='nl').save(out_raw)
+                  print("Saved raw TTS using gTTS ->", out_raw)
+                  used = True
+              except Exception as e:
+                  print("gTTS failed:", e)
                   sys.exit(1)
           PY
+
+          # Post-process with ffmpeg to produce a deeper, more dynamic, human-like male tone:
+          # - lower pitch slightly (asetrate) then resample and correct tempo (atempo)
+          # - boost low mids, reduce harsh highs
+          # - apply gentle compression, dynamic normalization, and a subtle echo (space)
+          ffmpeg -y -i Focus_Fantastique_tts_raw.mp3 -af "asetrate=44100*0.86,aresample=44100,atempo=1.03,equalizer=f=120:t=q:w=1:g=5,equalizer=f=500:t=q:w=1:g=2,equalizer=f=4000:t=q:w=1:g=-3,acompressor=threshold=-18dB:ratio=4:attack=5:release=200,dynaudnorm,aecho=0.6:0.6:1000:0.25" Focus_Fantastique_tts.mp3
 
       - name: Embed cover image
         run: |
