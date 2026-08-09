@@ -51,38 +51,38 @@ jobs:
       - name: Transcribe audio with Whisper Medium
         run: |
           python3 - <<'PY'
-import whisper
-model = whisper.load_model("medium")
-result = model.transcribe("raw_nieuws.mp3")
-with open("nieuws.txt", "w", encoding="utf-8") as f:
-    f.write(result.get("text", "").strip())
-PY
+          import whisper
+          model = whisper.load_model("medium")
+          result = model.transcribe("raw_nieuws.mp3")
+          with open("nieuws.txt", "w", encoding="utf-8") as f:
+              f.write(result.get("text", "").strip())
+          PY
 
       - name: Build TTS audio with Kokoro
         env:
           KOKORO_API_KEY: ${{ secrets.KOKORO_API_KEY }}
         run: |
           python3 - <<'PY'
-import os
-try:
-    from kokoro import TTS
-except Exception as e:
-    print("Kokoro import failed:", e)
-    raise
+          import os
+          try:
+              from kokoro import TTS
+          except Exception as e:
+              print("Kokoro import failed:", e)
+              raise
 
-intro = "Welkom bij het Focus Fantastique Nieuws, ik ben John Nagtzaam."
-outro = "Dit was het hele nieuws en weer op Focus Fantastique, nu terug naar de muziek."
+          intro = "Welkom bij het Focus Fantastique Nieuws, ik ben John Nagtzaam."
+          outro = "Dit was het hele nieuws en weer op Focus Fantastique, nu terug naar de muziek."
 
-with open("nieuws.txt", "r", encoding="utf-8") as f:
-    nieuws = f.read().strip()
+          with open("nieuws.txt", "r", encoding="utf-8") as f:
+              nieuws = f.read().strip()
 
-full_text = f"{intro}\n\n{nieuws}\n\n{outro}"
+          full_text = f"{intro}\n\n{nieuws}\n\n{outro}"
 
-voice = os.getenv("KOKORO_VOICE", "af_storm")
-tts = TTS(voice=voice)
-# If the kokoro library needs the API key explicitly, ensure it reads KOKORO_API_KEY from env.
-tts.save(full_text, "Focus_Fantastique_tts.mp3")
-PY
+          voice = os.getenv("KOKORO_VOICE", "af_storm")
+          tts = TTS(voice=voice)
+          # If the kokoro library needs the API key explicitly, ensure it reads KOKORO_API_KEY from env.
+          tts.save(full_text, "Focus_Fantastique_tts.mp3")
+          PY
 
       - name: Embed cover image
         run: |
@@ -118,4 +118,3 @@ PY
           else
             echo "Geen outputbestand, commit overgeslagen"
           fi
-          
