@@ -34,8 +34,8 @@ jobs:
       - name: Install Python packages
         run: |
           python3 -m pip install --upgrade pip
-          pip3 install -U openai-whisper kokoro || true
-          # Replace 'kokoro' with the correct package name if needed.
+          # install whisper, kokoro (if available), and a reliable fallback gTTS
+          pip3 install -U openai-whisper kokoro gTTS || true
 
       - name: Download newest MP3 from RSS
         run: |
@@ -51,38 +51,51 @@ jobs:
       - name: Transcribe audio with Whisper Medium
         run: |
           python3 - <<'PY'
-          import whisper
-          model = whisper.load_model("medium")
-          result = model.transcribe("raw_nieuws.mp3")
-          with open("nieuws.txt", "w", encoding="utf-8") as f:
-              f.write(result.get("text", "").strip())
-          PY
+import whisper
+model = whisper.load_model("medium")
+result = model.transcribe("raw_nieuws.mp3")
+with open("nieuws.txt", "w", encoding="utf-8") as f:
+    f.write(result.get("text", "").strip())
+PY
 
-      - name: Build TTS audio with Kokoro
+      - name: Build TTS audio (kokoro preferred, gTTS fallback)
         env:
           KOKORO_API_KEY: ${{ secrets.KOKORO_API_KEY }}
+          KOKORO_VOICE: ${{ env.KOKORO_VOICE }}
         run: |
           python3 - <<'PY'
-          import os
-          try:
-              from kokoro import TTS
-          except Exception as e:
-              print("Kokoro import failed:", e)
-              raise
+import os, sys
+with open("nieuws.txt", "r", encoding="utf-8") as f:
+    nieuws = f.read().strip()
 
-          intro = "Welkom bij het Focus Fantastique Nieuws, ik ben John Nagtzaam."
-          outro = "Dit was het hele nieuws en weer op Focus Fantastique, nu terug naar de muziek."
+intro = "Welkom bij het Focus Fantastique Nieuws, ik ben John Nagtzaam."
+outro = "Dit was het hele nieuws en weer op Focus Fantastique, nu terug naar de muziek."
 
-          with open("nieuws.txt", "r", encoding="utf-8") as f:
-              nieuws = f.read().strip()
+full_text = f"{intro}\n\n{nieuws}\n\n{outro}"
 
-          full_text = f"{intro}\n\n{nieuws}\n\n{outro}"
-
-          voice = os.getenv("KOKORO_VOICE", "af_storm")
-          tts = TTS(voice=voice)
-          # If the kokoro library needs the API key explicitly, ensure it reads KOKORO_API_KEY from env.
-          tts.save(full_text, "Focus_Fantastique_tts.mp3")
-          PY
+# Try kokoro first (if installed and exposes TTS)
+kokoro_api_key = os.getenv("KOKORO_API_KEY", "")
+try:
+    if kokoro_api_key:
+        from kokoro import TTS
+        voice = os.getenv("KOKORO_VOICE", "af_storm")
+        tts = TTS(voice=voice)
+        tts.save(full_text, "Focus_Fantastique_tts.mp3")
+        print("Saved TTS using kokoro.TTS")
+    else:
+        raise Exception("KOKORO_API_KEY not set; skipping kokoro")
+except Exception as e:
+    print("kokoro TTS unavailable or failed:", e)
+    # Fallback to gTTS (Google) — supports Dutch 'nl'
+    try:
+        from gtts import gTTS
+        t = gTTS(full_text, lang='nl')
+        t.save("Focus_Fantastique_tts.mp3")
+        print("Saved TTS using gTTS fallback")
+    except Exception as e2:
+        print("gTTS fallback also failed:", e2)
+        sys.exit(1)
+PY
 
       - name: Embed cover image
         run: |
@@ -108,7 +121,6 @@ jobs:
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git add Focus_Fantastique_tts.mp3
             git commit -m "Update Focus Fantastique TTS Nieuws" || echo "no changes to commit"
-            # Use the GITHUB_TOKEN for an authenticated push
             git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git
             BRANCH="${GITHUB_REF#refs/heads/}"
             if [ -z "$BRANCH" ]; then
