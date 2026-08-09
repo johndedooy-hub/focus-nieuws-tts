@@ -30,8 +30,8 @@ jobs:
           echo "Nieuwste MP3 URL: $AUDIO_URL"
           curl -L -s "$AUDIO_URL" -o raw_nieuws.mp3
           if [ ! -s raw_nieuws.mp3 ]; then
-            echo "Download mislukt"
-            exit 1
+          echo "Download mislukt"
+          exit 1
           fi
 
       - name: Transcribe audio with Whisper Medium
