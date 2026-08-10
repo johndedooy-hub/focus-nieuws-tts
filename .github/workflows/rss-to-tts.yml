@@ -106,7 +106,48 @@ jobs:
 
           # Normalize audio
           normalized_audio = normalize(faded_audio)
-     
+          
+          # Add ID3 tags
+          print("Adding ID3 tags...")
+          timestamp = datetime.now().strftime('%H:%M')
+          title = f"FocusFantastique Nieuws Update [{timestamp}]"
+
+          try:
+              audio_file = MP3(output_file)
+              audio_file.delete()
+          except:
+              pass
+
+          audio_file = MP3(output_file)
+          audio_file.add_tags()
+
+          # Set tags
+          audio_file['TIT2'] = TIT2(encoding=3, text=title)
+          audio_file['TPE1'] = TPE1(encoding=3, text='FocusFantastique Nieuws Update')
+          audio_file['TALB'] = TALB(encoding=3, text='FocusFantastique Nieuws Update')
+
+          # Add cover image if it exists
+          if os.path.exists(cover_image):
+              print(f"Adding cover image: {cover_image}")
+              with open(cover_image, 'rb') as img:
+                  audio_file['APIC'] = APIC(
+                      encoding=3,
+                      mime='image/jpeg',
+                      type=3,
+                      desc='Cover',
+                      data=img.read()
+                  )
+
+          audio_file.save()
+
+          # Clean up
+          os.remove(temp_audio)
+
+          print(f"✓ Audio processing complete!")
+          print(f"✓ Output file: {output_file}")
+          print(f"✓ Title: {title}")
+          EOF
+      
       - name: Prepend intro and append outro jingle
         run: |
           # Zorg dat introff.mp3 en outroff.mp3 in repo root staan
@@ -151,47 +192,6 @@ jobs:
           # Export audio
           print(f"Exporting to {output_file}...")
           normalized_audio.export(output_file, format='mp3', bitrate='128k')
-
-          # Add ID3 tags
-          print("Adding ID3 tags...")
-          timestamp = datetime.now().strftime('%H:%M')
-          title = f"FocusFantastique Nieuws Update [{timestamp}]"
-
-          try:
-              audio_file = MP3(output_file)
-              audio_file.delete()
-          except:
-              pass
-
-          audio_file = MP3(output_file)
-          audio_file.add_tags()
-
-          # Set tags
-          audio_file['TIT2'] = TIT2(encoding=3, text=title)
-          audio_file['TPE1'] = TPE1(encoding=3, text='FocusFantastique Nieuws Update')
-          audio_file['TALB'] = TALB(encoding=3, text='FocusFantastique Nieuws Update')
-
-          # Add cover image if it exists
-          if os.path.exists(cover_image):
-              print(f"Adding cover image: {cover_image}")
-              with open(cover_image, 'rb') as img:
-                  audio_file['APIC'] = APIC(
-                      encoding=3,
-                      mime='image/jpeg',
-                      type=3,
-                      desc='Cover',
-                      data=img.read()
-                  )
-
-          audio_file.save()
-
-          # Clean up
-          os.remove(temp_audio)
-
-          print(f"✓ Audio processing complete!")
-          print(f"✓ Output file: {output_file}")
-          print(f"✓ Title: {title}")
-          EOF
 
       - name: Configure Git
         run: |
