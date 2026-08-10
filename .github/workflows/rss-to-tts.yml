@@ -106,7 +106,11 @@ jobs:
 
           # Normalize audio
           normalized_audio = normalize(faded_audio)
-          
+
+          # Export audio
+          print(f"Exporting to {output_file}...")
+          normalized_audio.export(output_file, format='mp3', bitrate='128k')
+
           # Add ID3 tags
           print("Adding ID3 tags...")
           timestamp = datetime.now().strftime('%H:%M')
@@ -147,7 +151,7 @@ jobs:
           print(f"✓ Output file: {output_file}")
           print(f"✓ Title: {title}")
           EOF
-          
+
       - name: Configure Git
         run: |
           git config --local user.email "action@github.com"
