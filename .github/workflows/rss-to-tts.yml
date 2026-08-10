@@ -148,49 +148,6 @@ jobs:
           print(f"✓ Title: {title}")
           EOF
           
-          # Zorg dat introff.mp3 en outroff.mp3 in repo root staan
-          if [ ! -f introff.mp3 ]; then
-            echo "introff.mp3 niet gevonden in repo root"
-            exit 1
-          fi
-          if [ ! -f outroff.mp3 ]; then
-            echo "outroff.mp3 niet gevonden in repo root"
-            exit 1
-          fi
-          if [ ! -f Focus_Fantastique_tts.mp3 ]; then
-            echo "TTS output Focus_Fantastique_tts.mp3 niet gevonden"
-            exit 1
-          fi
-
-          # Normaliseer volumes (zodat levels vergelijkbaar zijn)
-          ffmpeg -y -i introff.mp3 -af "loudnorm" intro_norm.mp3
-          ffmpeg -y -i Focus_Fantastique_tts.mp3 -af "loudnorm" tts_norm.mp3
-          ffmpeg -y -i outroff.mp3 -af "loudnorm" outro_norm.mp3
-
-          # Maak 0.5s stilte tussen intro en TTS en tussen TTS en outro
-          ffmpeg -y -f lavfi -i anullsrc=r=44100:cl=stereo -t 0.5 silence.mp3
-
-          # Zorg dat alle bestanden dezelfde codec/bitrate door te re-encoden naar mp3 192k
-          ffmpeg -y -i intro_norm.mp3 -ar 44100 -ac 2 -b:a 192k intro_ready.mp3
-          ffmpeg -y -i tts_norm.mp3 -ar 44100 -ac 2 -b:a 192k tts_ready.mp3
-          ffmpeg -y -i outro_norm.mp3 -ar 44100 -ac 2 -b:a 192k outro_ready.mp3
-
-          # Maak concat lijst: intro + silence + tts + silence + outro
-          printf "file '%s'\nfile '%s'\nfile '%s'\nfile '%s'\nfile '%s'\n" intro_ready.mp3 silence.mp3 tts_ready.mp3 silence.mp3 outro_ready.mp3 > concat_list.txt
-
-          # Concat en schrijf finale output
-          ffmpeg -y -f concat -safe 0 -i concat_list.txt -c:a libmp3lame -b:a 192k Focus_Fantastique_tts_final.mp3
-
-          # Vervang originele output
-          mv Focus_Fantastique_tts_final.mp3 Focus_Fantastique_tts.mp3
-
-          # Cleanup tijdelijke bestanden
-          rm -f intro_norm.mp3 tts_norm.mp3 outro_norm.mp3 intro_ready.mp3 tts_ready.mp3 outro_ready.mp3 silence.mp3 concat_list.txt
-          
-          # Export audio
-          print(f"Exporting to {output_file}...")
-          normalized_audio.export(output_file, format='mp3', bitrate='128k')
-
       - name: Configure Git
         run: |
           git config --local user.email "action@github.com"
