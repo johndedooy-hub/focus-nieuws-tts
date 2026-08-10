@@ -147,9 +147,7 @@ jobs:
           print(f"✓ Output file: {output_file}")
           print(f"✓ Title: {title}")
           EOF
-      
-      - name: Prepend intro and append outro jingle
-        run: |
+          
           # Zorg dat introff.mp3 en outroff.mp3 in repo root staan
           if [ ! -f introff.mp3 ]; then
             echo "introff.mp3 niet gevonden in repo root"
