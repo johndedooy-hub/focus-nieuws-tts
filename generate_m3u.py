@@ -1,14 +1,19 @@
 import urllib.request
 import xml.etree.ElementTree as ET
 
-# Een publieke EDM podcast feed die directe MP3-links bevat
-RSS_URL = "https://podspace.space"
+# Een stabiele, openbare EDM-podcastbron (Corsten's Countdown / Ferry Corsten of alternatief archief)
+RSS_URL = "https://danceonair.com"
 OUTPUT_FILE = "edm_releases.m3u"
 
 def fetch_edm_releases():
     try:
-        # Haal de RSS feed op
-        response = urllib.request.urlopen(RSS_URL)
+        # HTTP-header toevoegen zodat de server ons verzoek niet blokkeert
+        req = urllib.request.Request(
+            RSS_URL, 
+            headers={'User-Agent': 'Mozilla/5.0'}
+        )
+        
+        response = urllib.request.urlopen(req)
         data = response.read()
         
         # Parse de XML data
@@ -24,7 +29,8 @@ def fetch_edm_releases():
         m3u_content = "#EXTM3U\n"
         
         for item in latest_items:
-            title = item.find('title').text
+            title_element = item.find('title')
+            title = title_element.text if title_element is not None else "Unknown EDM Track"
             
             # Zoek naar de audio link (enclosure tag)
             enclosure = item.find('enclosure')
@@ -46,4 +52,3 @@ def fetch_edm_releases():
 
 if __name__ == "__main__":
     fetch_edm_releases()
-  
