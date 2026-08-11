@@ -28,15 +28,22 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg
 
-      - name: Check transcript
+      - name: Check transcript and newsbed
         run: |
           if [ ! -f "Focus_Fantastique_tts.txt" ]; then
             echo "ERROR: Focus_Fantastique_tts.txt not found"
             exit 1
           fi
 
+          if [ ! -f "newsbed.mp3" ]; then
+            echo "ERROR: newsbed.mp3 not found"
+            exit 1
+          fi
+
           echo "Transcript found:"
           ls -lh Focus_Fantastique_tts.txt
+          echo "Newsbed found:"
+          ls -lh newsbed.mp3
 
       - name: Convert transcript to natural news speech
         run: |
@@ -48,13 +55,14 @@ jobs:
           from pydub import AudioSegment
 
           input_file = "Focus_Fantastique_tts.txt"
+          newsbed_file = "newsbed.mp3"
           output_file = "Focus-AIO-News.mp3"
 
-          # Nederlandse natuurlijke neurale stem
-          voice = "nl-NL-FennaNeural"
+          # Donkerder, volwassenere mannenstem
+          voice = "nl-NL-MaartenNeural"
 
-          # Rustige, duidelijke nieuwsspraak
-          rate = "-5%"
+          # Sneller tempo - volwassen nieuwsspreker
+          rate = "+15%"
 
           print("Reading transcript...")
 
@@ -152,7 +160,7 @@ jobs:
 
                   audio_parts.append(filename)
 
-              print("Combining audio...")
+              print("Combining audio with background music...")
 
               final_audio = AudioSegment.empty()
 
@@ -167,12 +175,32 @@ jobs:
 
                   final_audio += part
 
+              # Load newsbed achtergrondmuziek
+              if os.path.exists(newsbed_file):
+                  newsbed = AudioSegment.from_mp3(newsbed_file)
+                  
+                  # Loop newsbed totdat het langer is dan de spraak
+                  while len(newsbed) < len(final_audio):
+                      newsbed += newsbed
+                  
+                  # Trim newsbed tot dezelfde lengte als spraak
+                  newsbed = newsbed[:len(final_audio)]
+                  
+                  # Zet newsbed volume op -20dB (achtergrond)
+                  newsbed = newsbed - 20
+                  
+                  # Mix: spraak + achtergrondmuziek
+                  final_audio = final_audio.overlay(newsbed)
+                  print(f"Background music added and mixed")
+              else:
+                  print(f"WARNING: {newsbed_file} not found, continuing without background music")
+
               print("Exporting final MP3...")
 
               final_audio.export(
                   output_file,
                   format="mp3",
-                  bitrate="128k"
+                  bitrate="96k"
               )
 
               # Tijdelijke bestanden verwijderen
@@ -205,4 +233,3 @@ jobs:
             git commit -m "Update: Focus AIO News"
             git push
           fi
-          
