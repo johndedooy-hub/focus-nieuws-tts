@@ -55,7 +55,6 @@ jobs:
 
           # Rustige, duidelijke nieuwsspraak
           rate = "-5%"
-          pitch = "0Hz"
 
           print("Reading transcript...")
 
@@ -136,7 +135,6 @@ jobs:
                   text,
                   voice,
                   rate=rate,
-                  pitch=pitch
               )
               await communicate.save(filename)
 
