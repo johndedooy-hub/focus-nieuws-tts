@@ -62,7 +62,7 @@ jobs:
           voice = "nl-NL-MaartenNeural"
 
           # Sneller tempo - volwassen nieuwsspreker
-          rate = "+15%"
+          rate = "+5%"
 
           print("Reading transcript...")
 
