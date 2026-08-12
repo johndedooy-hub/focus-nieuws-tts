@@ -28,20 +28,26 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg
 
-      - name: Check transcript and newsbed
+      - name: Download transcript from Google Drive
         run: |
+          DRIVE_FILE_ID="16xpJ5J9_bnrOMiPdBiWI51HfPigGBoNq"
+          wget --quiet "https://drive.google.com/uc?id=${DRIVE_FILE_ID}&export=download" -O Focus_Fantastique_tts.txt
+          
           if [ ! -f "Focus_Fantastique_tts.txt" ]; then
-            echo "ERROR: Focus_Fantastique_tts.txt not found"
+            echo "ERROR: Failed to download transcript from Google Drive"
             exit 1
           fi
+          
+          echo "Transcript downloaded successfully:"
+          ls -lh Focus_Fantastique_tts.txt
 
+      - name: Check newsbed
+        run: |
           if [ ! -f "newsbed.mp3" ]; then
             echo "ERROR: newsbed.mp3 not found"
             exit 1
           fi
 
-          echo "Transcript found:"
-          ls -lh Focus_Fantastique_tts.txt
           echo "Newsbed found:"
           ls -lh newsbed.mp3
 
