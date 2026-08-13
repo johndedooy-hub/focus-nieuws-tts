@@ -68,7 +68,7 @@ jobs:
           voice = "nl-NL-MaartenNeural"
 
           # Sneller tempo - volwassen nieuwsspreker
-          rate = "+3%"
+          rate = "+1%"
 
           print("Reading transcript...")
 
@@ -192,8 +192,8 @@ jobs:
                   # Trim newsbed tot dezelfde lengte als spraak
                   newsbed = newsbed[:len(final_audio)]
                   
-                  # Zet newsbed volume op -20dB (achtergrond)
-                  newsbed = newsbed - 20
+                  # Zet newsbed volume op -15dB (achtergrond)
+                  newsbed = newsbed - 15
                   
                   # Mix: spraak + achtergrondmuziek
                   final_audio = final_audio.overlay(newsbed)
