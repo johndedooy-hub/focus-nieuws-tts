@@ -65,8 +65,7 @@ jobs:
           output_file = "Focus-AIO-News.mp3"
 
           # Donkerder, volwassenere mannenstem
-          voice = "nl-ColetteNeural"
-
+          voice = "en-US-EchoMultilingualNeural (Man)"
           # Sneller tempo - volwassen nieuwsspreker
           rate = "+1%"
 
