@@ -67,7 +67,7 @@ jobs:
           # Donkerder, volwassenere mannenstem
           voice = "nl-NL-ColetteNeural"
           # Sneller tempo - volwassen nieuwsspreker
-          rate = "+1%"
+          rate = "+0%"
 
           print("Reading transcript...")
 
