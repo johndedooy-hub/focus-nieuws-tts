@@ -65,9 +65,9 @@ jobs:
           output_file = "Focus-AIO-News.mp3"
 
           # Donkerder, volwassenere mannenstem
-          voice = "af-ZA-WillemNeural"
+          voice = "nl-NL-MaartenNeural"
           # Sneller tempo - volwassen nieuwsspreker
-          rate = "+0%"
+          rate = "-5%"
 
           print("Reading transcript...")
 
