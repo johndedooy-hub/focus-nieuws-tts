@@ -69,7 +69,7 @@ jobs:
           # Sneller tempo - volwassen nieuwsspreker
           rate = "-2%"
           # Meer gewicht in tekst
-          emphasis level = "strong
+          emphasis level = "strong"
 
           print("Reading transcript...")
 
