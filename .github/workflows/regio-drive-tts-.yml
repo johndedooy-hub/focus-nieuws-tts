@@ -1,4 +1,4 @@
-name: Focus AIO News TTS
+name: Focus Regio News TTS
 
 on:
   workflow_dispatch:
@@ -62,12 +62,12 @@ jobs:
 
           input_file = "Focus_Fantastique_tts.txt"
           newsbed_file = "newsbed.mp3"
-          output_file = "Focus-AIO-News.mp3"
+          output_file = "Focus-Regio-News.mp3"
 
           # Donkerder, volwassenere mannenstem
           voice = "nl-NL-MaartenNeural"
           # Sneller tempo - volwassen nieuwsspreker
-          rate = "-5%"
+          rate = "-2%"
 
           print("Reading transcript...")
 
@@ -222,7 +222,7 @@ jobs:
       - name: Show output
         run: |
           echo "Generated audio:"
-          ls -lh Focus-AIO-News.mp3
+          ls -lh Focus-Regio-News.mp3
 
       - name: Configure Git
         run: |
@@ -231,10 +231,10 @@ jobs:
 
       - name: Commit and push changes
         run: |
-          if git diff --quiet Focus-AIO-News.mp3; then
-            echo "No changes to Focus-AIO-News.mp3"
+          if git diff --quiet Focus-Regio-News.mp3; then
+            echo "No changes to Focus-Regio-News.mp3"
           else
-            git add Focus-AIO-News.mp3
-            git commit -m "Update: Focus AIO News"
+            git add Focus-Regio-News.mp3
+            git commit -m "Update: Focus Regio News"
             git push
           fi
