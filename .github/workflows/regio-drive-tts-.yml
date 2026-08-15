@@ -68,8 +68,6 @@ jobs:
           voice = "nl-NL-MaartenNeural"
           # Sneller tempo - volwassen nieuwsspreker
           rate = "-2%"
-          # Meer gewicht in tekst
-          emphasis level = "strong"
 
           print("Reading transcript...")
 
@@ -83,7 +81,6 @@ jobs:
           print(f"Characters: {len(text)}")
           print(f"Voice: {voice}")
           print(f"Rate: {rate}")
-          print(f"Emphasis Level: {emphasis level}")
 
           # Maak nette tekstblokken.
           # Lange teksten worden opgesplitst zodat Edge TTS
