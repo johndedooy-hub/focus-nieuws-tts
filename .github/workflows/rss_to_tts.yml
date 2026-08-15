@@ -89,7 +89,7 @@ jobs:
           audio = AudioSegment.from_mp3(temp_audio)
 
           # Calculate trim points
-          trim_start_ms = 5000
+          trim_start_ms = 5400
           trim_end_ms = int(5.9 * 1000)
           total_duration = len(audio)
           trim_end_point = total_duration - trim_end_ms
@@ -160,7 +160,7 @@ jobs:
           print("Loading Whisper model...")
 
           model = WhisperModel(
-              "small",
+              "medium",
               device="cpu",
               compute_type="int8"
           )
