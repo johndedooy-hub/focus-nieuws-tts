@@ -1,0 +1,238 @@
+name: Focus Regio News TTS
+
+on:
+  workflow_dispatch:
+
+jobs:
+  generate-news-audio:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install kokoro soundfile pydub
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg espeak-ng
+
+      - name: Download transcript from Google Drive
+        run: |
+          DRIVE_FILE_ID="16xpJ5J9_bnrOMiPdBiWI51HfPigGBoNq"
+          wget --quiet "https://google.com{DRIVE_FILE_ID}&export=download" -O Focus_Fantastique_tts.txt
+          
+          if [ ! -f "Focus_Fantastique_tts.txt" ]; then
+            echo "ERROR: Failed to download transcript from Google Drive"
+            exit 1
+          fi
+          
+          echo "Transcript downloaded successfully:"
+          ls -lh Focus_Fantastique_tts.txt
+
+      - name: Check newsbed
+        run: |
+          if [ ! -f "newsbed.mp3" ]; then
+            echo "ERROR: newsbed.mp3 not found"
+            exit 1
+          fi
+
+          echo "Newsbed found:"
+          ls -lh newsbed.mp3
+
+      - name: Convert transcript to natural news speech
+        run: |
+          python3 << 'EOF'
+          import os
+          import re
+          import soundfile as sf
+          import numpy as np
+          from kokoro import KPipeline
+          from pydub import AudioSegment
+
+          input_file = "Focus_Fantastique_tts.txt"
+          newsbed_file = "newsbed.mp3"
+          output_file = "Focus-Regio-News.mp3"
+
+          # Kokoro instellen voor Nederlands ('n'). Voor Engels gebruik 'a' of 'b'
+          pipeline = KPipeline(lang_code='n')
+          # nd_bella is een heldere, vloeiende Nederlandse stem
+          voice = 'nd_bella'
+          # Iets onder 1.0 voor een rustig, volwassen nieuwstempo
+          speed = 0.98
+
+          print("Reading transcript...")
+
+          with open(input_file, "r", encoding="utf-8") as f:
+              text = f.read().strip()
+
+          if not text:
+              print("ERROR: Transcript is empty")
+              exit(1)
+
+          print(f"Characters: {len(text)}")
+          print(f"Voice: {voice}")
+          print(f"Speed: {speed}")
+
+          # Maak nette tekstblokken op basis van witregels
+          paragraphs = re.split(r'\n\s*\n', text)
+          chunks = [p.strip() for p in paragraphs if p.strip()]
+
+          print(f"Number of TTS chunks: {len(chunks)}")
+
+          audio_parts = []
+
+          print("Generating AI speech with Kokoro...")
+          for index, chunk in enumerate(chunks, start=1):
+              filename_wav = f"tts_part_{index}.wav"
+              filename_mp3 = f"tts_part_{index}.mp3"
+
+              print(f"Generating part {index}/{len(chunks)}...")
+
+              # Genereer audio via de Kokoro pipeline
+              generator = pipeline(chunk, voice=voice, speed=speed)
+              
+              # Verzamel alle audio-arrays van deze chunk
+              all_audio = []
+              for _, _, audio in generator:
+                  if audio is not None and len(audio) > 0:
+                      all_audio.append(audio)
+              
+              if not all_audio:
+                  print(f"WARNING: Chunk {index} generated no audio")
+                  continue
+                  
+              # Voeg de numpy arrays samen tot één audiobestand
+              combined_audio = np.concatenate(all_audio)
+              
+              # Kokoro genereert standaard op 24000 Hz sample rate
+              sf.write(filename_wav, combined_audio, 24000)
+
+              # Converteer WAV direct naar MP3 met Pydub voor de uiteindelijke mix
+              part = AudioSegment.from_wav(filename_wav)
+              part.export(filename_mp3, format="mp3")
+              audio_parts.append(filename_mp3)
+
+              # Ruim het tijdelijke WAV-bestand direct op
+              if os.path.exists(filename_wav):
+                  os.remove(filename_wav)
+
+          print("Combining audio with background music...")
+
+          final_audio = AudioSegment.empty()
+
+          # Kleine natuurlijke pauze tussen nieuwsblokken
+          pause = AudioSegment.silent(duration=350)
+
+          for index, filename in enumerate(audio_parts):
+              part = AudioSegment.from_mp3(filename)
+
+              if len(final_audio) > 0:
+                  final_audio += pause
+
+              final_audio += part
+
+          # Load newsbed achtergrondmuziek
+          if os.path.exists(newsbed_file):
+              newsbed = AudioSegment.from_mp3(newsbed_file)
+              
+              # Loop newsbed totdat het langer is dan de spraak
+              while len(newsbed) < len(final_audio):
+                  newsbed += newsbed
+              
+              # Trim newsbed tot dezelfde lengte als spraak
+              newsbed = newsbed[:len(final_audio)]
+              
+              # Zet newsbed volume op -15dB (achtergrond)
+              newsbed = newsbed - 15
+              
+              # Mix: spraak + achtergrondmuziek
+              final_audio = final_audio.overlay(newsbed)
+              print(f"Background music added and mixed")
+          else:
+              print(f"WARNING: {newsbed_file} not found, continuing without background music")
+
+          print("Exporting final MP3...")
+
+          # Geëxporteerd op 128k voor betere AI-audiokwaliteit
+          final_audio.export(
+              output_file,
+              format="mp3",
+              bitrate="128k"
+          )
+
+          # Tijdelijke MP3 bestanden verwijderen
+          for filename in audio_parts:
+              if os.path.exists(filename):
+                  os.remove(filename)
+
+          EOF
+
+          print("✓ TTS generation complete!")
+          print(f"✓ Output: {output_file}")
+
+      - name: Show output
+        run: |
+          echo "Generated audio:"
+          ls -lh Focus-Regio-News.mp3
+
+      - name: Configure Git
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+      - name: Commit and push changes
+        run: |
+          if git diff --quiet Focus-Regio-News.mp3; then
+            echo "No changes to Focus-Regio-News.mp3"
+          else
+            git add Focus-Regio-News.mp3
+            git commit -m "Update: Focus Regio News"
+            git push
+          fi
+          # Example using a free music metadata API
+        # You could also use Spotify API, Last.fm, or similar
+        
+        # For demonstration, we'll create a template
+        # In production, replace with actual API calls
+     playlist_content = []
+     playlist_content.append("#EXTM3U")
+     playlist_content.append(f"#EDM Top 10 - Generated on {datetime.now().strftime('%Y-%m-%d')}")
+        
+        # Example structure - replace with real API data
+          sample_tracks = [
+            {"artist": "Artist1", "title": "Track1", "duration": 180},
+            {"artist": "Artist2", "title": "Track2", "duration": 210},
+            # ... add 8 more tracks from your chosen API
+        ]
+        
+        for track in sample_tracks:
+            playlist_content.append(f"#EXTINF:{track['duration']},{track['artist']} - {track['title']}")
+            # Note: For actual playback, you'd need streaming URLs from a licensed service
+            playlist_content.append(f"stream://{track['artist']}/{track['title']}")
+        
+        with open('edm10.m3u', 'w', encoding='utf-8') as f:
+            f.write('\n'.join(playlist_content))
+        
+        print("Playlist generated successfully!")
+        EOF
+
+    - name: Commit and push playlist
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add edm10.m3u
+        git commit -m "Update EDM Top 10 playlist - $(date +%Y-%m-%d)" || exit 0
+        git push
+        
