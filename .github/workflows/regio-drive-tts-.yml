@@ -1,16 +1,28 @@
-name: Focus Regio News TTS
+name: Focus Regio News TTS # De naam van deze workflow
 
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows: ["RSS to Text and Cutted MP3"] # VUL HIER DE EXACTE 'name:' IN VAN RSS-TO-TTS.YML
+    types:
+      - completed
 
 jobs:
-  generate-news-audio:
+  jouw-job:
     runs-on: ubuntu-latest
-
-    permissions:
-      contents: write
-
+    # Zorg dat deze job alleen draait als rss-to-tts succesvol was (niet gecrasht)
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
+    
+      - name: Start actie
+        run: echo "rss-to-tts is klaar, nu starten we focus-regio!"      
+   jobs:
+     generate-news-audio:
+     runs-on: ubuntu-latest
+     permissions:
+     contents: write
+     
+     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
