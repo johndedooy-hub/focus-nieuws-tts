@@ -68,7 +68,7 @@ jobs:
           # Kokoro instellen voor Nederlands ('n'). Voor Engels gebruik 'a' of 'b'
           pipeline = KPipeline(lang_code='n')
           # nd_bella is een heldere, vloeiende Nederlandse stem
-          voice = 'nd_bella'
+          voice = 'n_bella'
           # Iets onder 1.0 voor een rustig, volwassen nieuwstempo
           speed = 0.98
 
