@@ -65,10 +65,10 @@ jobs:
           newsbed_file = "newsbed.mp3"
           output_file = "Focus-Regio-News.mp3"
 
-          # Kokoro instellen voor Nederlands ('n'). Voor Engels gebruik 'a' of 'b'
-          pipeline = KPipeline(lang_code='n')
+          # Kokoro instellen voor Nederlands ('nl-NL'). Voor Engels gebruik 'a' of 'b'
+          pipeline = KPipeline(lang_code='nl-NL')
           # nd_bella is een heldere, vloeiende Nederlandse stem
-          voice = 'n_bella'
+          voice = 'nd_bella'
           # Iets onder 1.0 voor een rustig, volwassen nieuwstempo
           speed = 0.98
 
