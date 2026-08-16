@@ -5,7 +5,7 @@ on:
   repository_dispatch:
     types: [process-rss]
   schedule:
-    - cron: '*/47 * * * *'
+    - cron: '*/10 * * * *'
 
 jobs:
   process-audio:
