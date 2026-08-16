@@ -30,16 +30,16 @@ jobs:
 
       - name: Download transcript from Google Drive
         run: |
-          DRIVE_FILE_ID="16xpJ5J9_bnrOMiPdBiWI51HfPigGBoNq"
-          wget --quiet "https://drive.google.com/uc?id=${DRIVE_FILE_ID}&export=download" -O Focus_Fantastique_tts.txt
+          DRIVE_FILE_ID="1FMLqmvQrtd7hYb_YNV9zI3-GNLvYr-6Z"
+          wget --quiet "https://drive.google.com/uc?id=${DRIVE_FILE_ID}&export=download" -O Focus-Regio-Blok.txt
           
-          if [ ! -f "Focus_Fantastique_tts.txt" ]; then
+          if [ ! -f "Focus-Regio-Blok.txt" ]; then
             echo "ERROR: Failed to download transcript from Google Drive"
             exit 1
           fi
           
           echo "Transcript downloaded successfully:"
-          ls -lh Focus_Fantastique_tts.txt
+          ls -lh Focus-Regio-Blok.txt
 
       - name: Check newsbed
         run: |
@@ -60,7 +60,7 @@ jobs:
           import re
           from pydub import AudioSegment
 
-          input_file = "Focus_Fantastique_tts.txt"
+          input_file = "Focus-Regio-Blok.txt"
           newsbed_file = "newsbed.mp3"
           output_file = "Focus-Regio-News.mp3"
 
