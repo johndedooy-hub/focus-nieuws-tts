@@ -1,0 +1,6 @@
+#EXTM3U
+#EDM Top 10 - Generated on 2026-08-16
+#EXTINF:180,Artist1 - Track1
+stream://Artist1/Track1
+#EXTINF:210,Artist2 - Track2
+stream://Artist2/Track2
