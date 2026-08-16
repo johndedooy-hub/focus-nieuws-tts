@@ -1,4 +1,4 @@
-name: RSS to TTS Audio Processing
+name: RSS to Text and Cutted MP3
 
 on:
   workflow_dispatch:
