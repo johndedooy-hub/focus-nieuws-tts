@@ -65,7 +65,7 @@ jobs:
           output_file = "Focus-Regio-News.mp3"
 
           # Donkerder, volwassenere mannenstem
-          voice = "nl-BE-ArnaudNeural"
+          voice = "nl-NL-FennaNeural"
           # Sneller tempo - volwassen nieuwsspreker
           rate = "-2%"
 
