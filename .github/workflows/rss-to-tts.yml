@@ -2,10 +2,6 @@ name: RSS to Text and Cutted MP3
 
 on:
   workflow_dispatch:
-  repository_dispatch:
-    types: [process-rss]
-  schedule:
-    - cron: '*/10 * * * *'
 
 jobs:
   process-audio:
