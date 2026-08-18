@@ -1,4 +1,4 @@
-name: RSS to Text and Cutted MP3
+name: RSS to Text TEST
 
 on:
   workflow_dispatch:
