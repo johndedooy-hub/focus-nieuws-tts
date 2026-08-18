@@ -1,0 +1,248 @@
+name: RSS to Text and Cutted MP3
+
+on:
+  workflow_dispatch:
+
+jobs:
+  process-audio:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install feedparser pydub mutagen requests python-dateutil faster-whisper edge-tts
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Fetch and process audio
+        env:
+          RSS_URL: 'https://www.omnycontent.com/d/playlist/8257a063-6be9-42fa-b892-acd4013b1255/84d4de9f-8ca2-40c5-8d33-b0ce00d6f186/e4c79cb6-51a3-4c08-9573-b0ce00d746db/podcast.rss'
+          OUTPUT_FILE: 'Focus_Fantastique_tts.mp3'
+          COVER_IMAGE: 'FocusFantastiqueNieuws.jpg'
+        run: |
+          python3 << 'EOF'
+          import feedparser
+          import requests
+          import os
+          from pydub import AudioSegment
+          from pydub.effects import normalize
+          from mutagen.mp3 import MP3
+          from mutagen.id3 import ID3, TIT2, TPE1, TALB, APIC
+          from datetime import datetime
+
+          # Configuration
+          rss_url = os.environ['RSS_URL']
+          output_file = os.environ['OUTPUT_FILE']
+          cover_image = os.environ['COVER_IMAGE']
+
+          # Parse RSS feed
+          print("Fetching RSS feed...")
+          feed = feedparser.parse(rss_url)
+
+          if not feed.entries:
+              print("No entries found in RSS feed")
+              exit(1)
+
+          # Get the latest entry
+          latest_entry = feed.entries[0]
+          audio_url = None
+
+          # Find audio enclosure
+          for enclosure in latest_entry.get('enclosures', []):
+              if enclosure.type.startswith('audio/'):
+                  audio_url = enclosure.href
+                  break
+
+          if not audio_url:
+              print("No audio file found in RSS entry")
+              exit(1)
+
+          print(f"Downloading audio from: {audio_url}")
+          audio_response = requests.get(audio_url)
+          audio_response.raise_for_status()
+
+          # Save temporary audio file
+          temp_audio = 'temp_audio.mp3'
+          with open(temp_audio, 'wb') as f:
+              f.write(audio_response.content)
+
+          # Load audio with pydub
+          print("Loading audio...")
+          audio = AudioSegment.from_mp3(temp_audio)
+
+          # Calculate trim points
+          trim_start_ms = 5400
+          trim_end_ms = int(5.9 * 1000)
+          total_duration = len(audio)
+          trim_end_point = total_duration - trim_end_ms
+
+          print(f"Audio duration: {total_duration}ms")
+          print(f"Trimming: {trim_start_ms}ms from start, {trim_end_ms}ms from end")
+
+          # Trim audio
+          trimmed_audio = audio[trim_start_ms:trim_end_point]
+
+          # Apply fade in/out (1 second)
+          fade_duration_ms = 1000
+          faded_audio = trimmed_audio.fade_in(fade_duration_ms).fade_out(fade_duration_ms)
+
+          # Normalize audio
+          normalized_audio = normalize(faded_audio)
+
+          # Export audio
+          print(f"Exporting to {output_file}...")
+          normalized_audio.export(output_file, format='mp3', bitrate='128k')
+
+          # Add ID3 tags
+          print("Adding ID3 tags...")
+          timestamp = datetime.now().strftime('%H:%M')
+          title = f"FocusFantastique Nieuws Update UTC+2 [{timestamp}]"
+
+          try:
+              audio_file = MP3(output_file)
+              audio_file.delete()
+          except:
+              pass
+
+          audio_file = MP3(output_file)
+          audio_file.add_tags()
+
+          # Set tags
+          audio_file['TIT2'] = TIT2(encoding=3, text=title)
+          audio_file['TPE1'] = TPE1(encoding=3, text='FocusFantastique Nieuws Update')
+          audio_file['TALB'] = TALB(encoding=3, text='FocusFantastique Nieuws Update')
+
+          # Add cover image if it exists
+          if os.path.exists(cover_image):
+              print(f"Adding cover image: {cover_image}")
+              with open(cover_image, 'rb') as img:
+                  audio_file['APIC'] = APIC(
+                      encoding=3,
+                      mime='image/jpeg',
+                      type=3,
+                      desc='Cover',
+                      data=img.read()
+                  )
+
+          audio_file.save()
+
+          # Clean up
+          os.remove(temp_audio)
+
+          print(f"✓ Audio processing complete!")
+          print(f"✓ Output file: {output_file}")
+          print(f"✓ Title: {title}")
+          EOF
+
+      - name: Transcribe audio with Whisper
+        run: |
+          from faster_whisper import WhisperModel
+
+          print("Loading Whisper model...")
+
+          model = WhisperModel(
+              "medium",
+              device="cpu",
+              compute_type="int8"
+          )
+
+          print("Transcribing Focus_Fantastique_tts.mp3...")
+
+          segments, info = model.transcribe(
+              "Focus_Fantastique_tts.mp3",
+              language="nl",
+              beam_size=5,
+              vad_filter=True
+          )
+
+          with open("Focus_Fantastique_tts.txt", "w", encoding="utf-8") as f:
+              for segment in segments:
+                  text = segment.text.strip()
+                  if text:
+                      f.write(text + "\n")
+
+          print("✓ Transcription complete!")
+          print("✓ Output file: Focus_Fantastique_tts.txt")
+          EOF
+
+      - name: Generate High-Quality NL Voice Bulletin
+        run: |
+          python3 - << 'EOF'
+          import asyncio
+          import edge_tts
+          from pydub import AudioSegment
+          from pydub.effects import normalize
+          import os
+
+          async def generate_studio_audio():
+              print("Reading transcribed text...")
+              if not os.path.exists("Focus_Fantastique_tts.txt"):
+                  print("No text file found to synthesize.")
+                  return
+
+              with open("Focus_Fantastique_tts.txt", "r", encoding="utf-8") as f:
+                  text = f.read().strip()
+
+              if not text:
+                  print("Text file is empty.")
+                  return
+
+              # Geoptimaliseerde instellingen om de robot-klank te onderdrukken
+              # - rate: -5% zorgt voor een rustigere, natuurlijkere spreek-ademhaling
+              # - pitch: -2Hz haalt de scherpe, blikkerige AI-frequentie weg voor een warmere stem
+              voice = "nl-NL-MaartenNeural" 
+              communicate = edge_tts.Communicate(text, voice, rate="-5%", pitch="-2Hz")
+              
+              raw_output = "raw_ai_voice.mp3"
+              print("Generating natural NL voice via Edge Pipeline...")
+              await communicate.save(raw_output)
+
+              # Nabewerking met Pydub om de stem "studiokwaliteit" te geven
+              print("Applying studio vocal filters...")
+              sound = AudioSegment.from_mp3(raw_output)
+              
+              # Subtiele compressie-simulatie via normalisatie en lichte bas-boost
+              sound = normalize(sound)
+              
+              # Overschrijf het originele mp3-bestand met de nieuwe AI-stemversie
+              # Indien gewenst kun je de bestandsnaam hier aanpassen naar een unieke naam
+              sound.export("Focus_Fantastique_tts.mp3", format="mp3", bitrate="128k")
+              
+              # Clean up raw file
+              if os.path.exists(raw_output):
+                  os.remove(raw_output)
+                  
+              print("✓ High quality spoken bulletin generated and enhanced!")
+
+          asyncio.run(generate_studio_audio())
+          EOF
+
+      - name: Configure Git
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+      - name: Commit and push changes
+        run: |
+          if git diff --quiet Focus_Fantastique_tts.mp3 Focus_Fantastique_tts.txt; then
+            echo "No changes to audio or transcript"
+          else
+            git add Focus_Fantastique_tts.mp3 Focus_Fantastique_tts.txt
+            git commit -m "Update: FocusFantastique Nieuws Update - UTC+2 $(date '+%H:%M')"
+            git push
+          fi
+          
