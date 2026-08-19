@@ -158,13 +158,16 @@ jobs:
               vad_filter=True
           )
 
-          with open(output_text, "w", encoding="utf-8") as f:
-              for segment in segments:
-                  text = segment.text.strip()
-                  if text:
-                      f.write(text + "\n")
+          # Verzamel alle losse stukjes spraak
+          text_parts = [segment.text.strip() for segment in segments if segment.text.strip()]
+          
+          # Voeg samen tot vloeiende tekst met spaties tussen de delen
+          full_text = " ".join(text_parts)
 
-          print("✓ Transcriptie compleet!")
+          with open(output_text, "w", encoding="utf-8") as f:
+              f.write(full_text.strip() + "\n")
+
+          print("✓ Transcriptie compleet (vloeiende tekst)!")
           EOF
 
       - name: Generate High-Quality NL Voice (Maarten Neural TTS)
