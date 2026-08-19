@@ -170,7 +170,7 @@ jobs:
           print("✓ Transcriptie compleet (vloeiende tekst)!")
           EOF
 
-      - name: Generate High-Quality NL Voice (Fenna Neural TTS)
+      - name: Generate High-Quality NL Voice (Maarten Neural TTS)
         run: |
           python3 - <<'EOF'
           import asyncio
