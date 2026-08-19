@@ -24,7 +24,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install feedparser pydub mutagen requests python-dateutil faster-whisper edge-tts
+          python -m pip install feedparser pydub mutagen requests python-dateutil faster-whisper edge-tts
           sudo apt-get update
           sudo apt-get install -y ffmpeg
 
@@ -34,7 +34,7 @@ jobs:
           OUTPUT_FILE: 'Focus_Fantastique_tts.mp3'
           COVER_IMAGE: 'FocusFantastiqueNieuws.jpg'
         run: |
-          python3 << 'EOF'
+          python3 - <<'EOF'
           import feedparser
           import requests
           import os
@@ -63,7 +63,7 @@ jobs:
 
           # Find audio enclosure
           for enclosure in latest_entry.get('enclosures', []):
-              if enclosure.type.startswith('audio/'):
+              if enclosure.type and enclosure.type.startswith('audio/'):
                   audio_url = enclosure.href
                   break
 
@@ -82,19 +82,23 @@ jobs:
 
           # Load audio with pydub
           print("Loading audio...")
-          audio = AudioSegment.from_mp3(temp_audio)
+          audio = AudioSegment.from_file(temp_audio)
 
           # Calculate trim points
           trim_start_ms = 5400
           trim_end_ms = int(5.9 * 1000)
           total_duration = len(audio)
-          trim_end_point = total_duration - trim_end_ms
+          trim_end_point = max(0, total_duration - trim_end_ms)
 
           print(f"Audio duration: {total_duration}ms")
           print(f"Trimming: {trim_start_ms}ms from start, {trim_end_ms}ms from end")
 
-          # Trim audio
-          trimmed_audio = audio[trim_start_ms:trim_end_point]
+          # Trim audio (guard against invalid ranges)
+          if trim_start_ms >= trim_end_point:
+              print("Trim points result in empty audio after trimming; exporting full audio instead.")
+              trimmed_audio = audio
+          else:
+              trimmed_audio = audio[trim_start_ms:trim_end_point]
 
           # Apply fade in/out (1 second)
           fade_duration_ms = 1000
@@ -114,23 +118,30 @@ jobs:
 
           try:
               audio_file = MP3(output_file)
-              audio_file.delete()
-          except:
+              # If tags exist, remove them first
+              try:
+                  audio_file.delete()
+              except Exception:
+                  pass
+          except Exception:
+              audio_file = MP3(output_file)
+
+          # Ensure tags object
+          try:
+              audio_file.add_tags()
+          except Exception:
               pass
 
-          audio_file = MP3(output_file)
-          audio_file.add_tags()
-
           # Set tags
-          audio_file['TIT2'] = TIT2(encoding=3, text=title)
-          audio_file['TPE1'] = TPE1(encoding=3, text='FocusFantastique Nieuws Update')
-          audio_file['TALB'] = TALB(encoding=3, text='FocusFantastique Nieuws Update')
+          audio_file["TIT2"] = TIT2(encoding=3, text=title)
+          audio_file["TPE1"] = TPE1(encoding=3, text='FocusFantastique Nieuws Update')
+          audio_file["TALB"] = TALB(encoding=3, text='FocusFantastique Nieuws Update')
 
           # Add cover image if it exists
           if os.path.exists(cover_image):
               print(f"Adding cover image: {cover_image}")
               with open(cover_image, 'rb') as img:
-                  audio_file['APIC'] = APIC(
+                  audio_file["APIC"] = APIC(
                       encoding=3,
                       mime='image/jpeg',
                       type=3,
@@ -141,7 +152,10 @@ jobs:
           audio_file.save()
 
           # Clean up
-          os.remove(temp_audio)
+          try:
+              os.remove(temp_audio)
+          except Exception:
+              pass
 
           print(f"✓ Audio processing complete!")
           print(f"✓ Output file: {output_file}")
@@ -150,38 +164,47 @@ jobs:
 
       - name: Transcribe audio with Whisper
         run: |
+          python3 - <<'EOF'
           from faster_whisper import WhisperModel
+          import sys
+          import os
+
+          input_audio = "Focus_Fantastique_tts.mp3"
+          output_text = "Focus_Fantastique_tts.txt"
+
+          if not os.path.exists(input_audio):
+              print(f"Input audio not found: {input_audio}")
+              sys.exit(1)
 
           print("Loading Whisper model...")
-
           model = WhisperModel(
               "medium",
               device="cpu",
               compute_type="int8"
           )
 
-          print("Transcribing Focus_Fantastique_tts-1.mp3...")
+          print(f"Transcribing {input_audio}...")
 
           segments, info = model.transcribe(
-              "Focus_Fantastique_tts-1.mp3",
+              input_audio,
               language="nl",
               beam_size=5,
               vad_filter=True
           )
 
-          with open("Focus_Fantastique_tts.txt", "w", encoding="utf-8") as f:
+          with open(output_text, "w", encoding="utf-8") as f:
               for segment in segments:
                   text = segment.text.strip()
                   if text:
                       f.write(text + "\n")
 
           print("✓ Transcription complete!")
-          print("✓ Output file: Focus_Fantastique_tts.txt")
+          print(f"✓ Output file: {output_text}")
           EOF
 
       - name: Generate High-Quality NL Voice Bulletin
         run: |
-          python3 - << 'EOF'
+          python3 - <<'EOF'
           import asyncio
           import edge_tts
           from pydub import AudioSegment
@@ -190,43 +213,43 @@ jobs:
 
           async def generate_studio_audio():
               print("Reading transcribed text...")
-              if not os.path.exists("Focus_Fantastique_tts.txt"):
+              txt_file = "Focus_Fantastique_tts.txt"
+              if not os.path.exists(txt_file):
                   print("No text file found to synthesize.")
                   return
 
-              with open("Focus_Fantastique_tts.txt", "r", encoding="utf-8") as f:
+              with open(txt_file, "r", encoding="utf-8") as f:
                   text = f.read().strip()
 
               if not text:
                   print("Text file is empty.")
                   return
 
-              # Geoptimaliseerde instellingen om de robot-klank te onderdrukken
-              # - rate: -5% zorgt voor een rustigere, natuurlijkere spreek-ademhaling
-              # - pitch: -2Hz haalt de scherpe, blikkerige AI-frequentie weg voor een warmere stem
-              voice = "nl-NL-MaartenNeural" 
+              # Voice settings for a more natural NL voice
+              voice = "nl-NL-MaartenNeural"
               communicate = edge_tts.Communicate(text, voice, rate="-5%", pitch="-2Hz")
               
               raw_output = "raw_ai_voice.mp3"
               print("Generating natural NL voice via Edge Pipeline...")
               await communicate.save(raw_output)
 
-              # Nabewerking met Pydub om de stem "studiokwaliteit" te geven
+              # Post-process with pydub
               print("Applying studio vocal filters...")
-              sound = AudioSegment.from_mp3(raw_output)
+              sound = AudioSegment.from_file(raw_output)
               
-              # Subtiele compressie-simulatie via normalisatie en lichte bas-boost
+              # Normalize and export
               sound = normalize(sound)
-              
-              # Overschrijf het originele mp3-bestand met de nieuwe AI-stemversie
-              # Indien gewenst kun je de bestandsnaam hier aanpassen naar een unieke naam
-              sound.export("Focus_Fantastique_tts-1.mp3", format="mp3", bitrate="128k")
+              final_output = "Focus_Fantastique_tts-1.mp3"
+              sound.export(final_output, format="mp3", bitrate="128k")
               
               # Clean up raw file
-              if os.path.exists(raw_output):
+              try:
                   os.remove(raw_output)
+              except Exception:
+                  pass
                   
               print("✓ High quality spoken bulletin generated and enhanced!")
+              print(f"✓ Output file: {final_output}")
 
           asyncio.run(generate_studio_audio())
           EOF
@@ -238,11 +261,13 @@ jobs:
 
       - name: Commit and push changes
         run: |
-          if git diff --quiet Focus_Fantastique_tts-1.mp3 Focus_Fantastique_tts.txt; then
+          # Stage the files (ignore errors if files don't exist)
+          git add Focus_Fantastique_tts-1.mp3 Focus_Fantastique_tts.txt || true
+
+          # If there is nothing staged, skip commit
+          if git diff --cached --quiet; then
             echo "No changes to audio or transcript"
           else
-            git add Focus_Fantastique_tts-1.mp3 Focus_Fantastique_tts.txt
             git commit -m "Update: FocusFantastique Nieuws Update - UTC+2 $(date '+%H:%M')"
             git push
           fi
-          
