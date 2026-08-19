@@ -1,0 +1,226 @@
+name: RSS to Text TEST
+
+on:
+  workflow_dispatch:
+
+jobs:
+  process-audio:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies & FFmpeg
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install feedparser pydub mutagen requests python-dateutil faster-whisper edge-tts
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Fetch, Process and Trim RSS Audio
+        env:
+          RSS_URL: 'https://www.omnycontent.com/d/playlist/8257a063-6be9-42fa-b892-acd4013b1255/84d4de9f-8ca2-40c5-8d33-b0ce00d6f186/e4c79cb6-51a3-4c08-9573-b0ce00d746db/podcast.rss'
+          OUTPUT_FILE: 'Focus_Fantastique_tts.mp3'
+          COVER_IMAGE: 'FocusFantastiqueNieuws.jpg'
+        run: |
+          python3 - <<'EOF'
+          import feedparser
+          import requests
+          import os
+          from pydub import AudioSegment
+          from pydub.effects import normalize
+          from mutagen.mp3 import MP3
+          from mutagen.id3 import ID3, TIT2, TPE1, TALB, APIC
+          from datetime import datetime
+
+          rss_url = os.environ['RSS_URL']
+          output_file = os.environ['OUTPUT_FILE']
+          cover_image = os.environ['COVER_IMAGE']
+
+          print("Ophalen van RSS feed...")
+          feed = feedparser.parse(rss_url)
+
+          if not feed.entries:
+              print("Geen afleveringen gevonden in RSS feed.")
+              exit(1)
+
+          latest_entry = feed.entries[0]
+          audio_url = None
+
+          for enclosure in latest_entry.get('enclosures', []):
+              if enclosure.type and enclosure.type.startswith('audio/'):
+                  audio_url = enclosure.href
+                  break
+
+          if not audio_url:
+              print("Geen audiobestand gevonden in meest recente entry.")
+              exit(1)
+
+          print(f"Downloaden van audio: {audio_url}")
+          audio_response = requests.get(audio_url)
+          audio_response.raise_for_status()
+
+          temp_audio = 'temp_audio.mp3'
+          with open(temp_audio, 'wb') as f:
+              f.write(audio_response.content)
+
+          print("Laden en trimmen van audio...")
+          audio = AudioSegment.from_file(temp_audio)
+
+          trim_start_ms = 5400
+          trim_end_ms = int(5.9 * 1000)
+          total_duration = len(audio)
+          trim_end_point = max(0, total_duration - trim_end_ms)
+
+          if trim_start_ms >= trim_end_point:
+              trimmed_audio = audio
+          else:
+              trimmed_audio = audio[trim_start_ms:trim_end_point]
+
+          faded_audio = trimmed_audio.fade_in(1000).fade_out(1000)
+          normalized_audio = normalize(faded_audio)
+
+          normalized_audio.export(output_file, format='mp3', bitrate='128k')
+
+          # ID3 Tags toevoegen
+          timestamp = datetime.now().strftime('%H:%M')
+          title = f"FocusFantastique Nieuws Update UTC+2 [{timestamp}]"
+
+          try:
+              audio_file = MP3(output_file)
+              try:
+                  audio_file.delete()
+              except Exception:
+                  pass
+          except Exception:
+              audio_file = MP3(output_file)
+
+          try:
+              audio_file.add_tags()
+          except Exception:
+              pass
+
+          audio_file["TIT2"] = TIT2(encoding=3, text=title)
+          audio_file["TPE1"] = TPE1(encoding=3, text='FocusFantastique Nieuws Update')
+          audio_file["TALB"] = TALB(encoding=3, text='FocusFantastique Nieuws Update')
+
+          if os.path.exists(cover_image):
+              with open(cover_image, 'rb') as img:
+                  audio_file["APIC"] = APIC(
+                      encoding=3,
+                      mime='image/jpeg',
+                      type=3,
+                      desc='Cover',
+                      data=img.read()
+                  )
+
+          audio_file.save()
+
+          if os.path.exists(temp_audio):
+              os.remove(temp_audio)
+
+          print("✓ Originele audio succesvol verwerkt!")
+          EOF
+
+      - name: Transcribe audio with Whisper (STT)
+        run: |
+          python3 - <<'EOF'
+          from faster_whisper import WhisperModel
+          import sys
+          import os
+
+          input_audio = "Focus_Fantastique_tts.mp3"
+          output_text = "Focus_Fantastique_tts.txt"
+
+          if not os.path.exists(input_audio):
+              print(f"Bestand niet gevonden: {input_audio}")
+              sys.exit(1)
+
+          print("Whisper model laden...")
+          model = WhisperModel("medium", device="cpu", compute_type="int8")
+
+          print(f"Transcriberen van {input_audio}...")
+          segments, _ = model.transcribe(
+              input_audio,
+              language="nl",
+              beam_size=5,
+              vad_filter=True
+          )
+
+          with open(output_text, "w", encoding="utf-8") as f:
+              for segment in segments:
+                  text = segment.text.strip()
+                  if text:
+                      f.write(text + "\n")
+
+          print("✓ Transcriptie compleet!")
+          EOF
+
+      - name: Generate High-Quality NL Voice (Maarten Neural TTS)
+        run: |
+          python3 - <<'EOF'
+          import asyncio
+          import edge_tts
+          from pydub import AudioSegment
+          from pydub.effects import normalize
+          import os
+
+          async def generate_speech():
+              txt_file = "Focus_Fantastique_tts.txt"
+              if not os.path.exists(txt_file):
+                  print("Geen tekstbestand gevonden.")
+                  return
+
+              with open(txt_file, "r", encoding="utf-8") as f:
+                  text = f.read().strip()
+
+              if not text:
+                  print("Tekstbestand is leeg.")
+                  return
+
+              # nl-NL-MaartenNeural: Hoogste kwaliteit natuurlijke NL mannenstem
+              voice = "nl-NL-MaartenNeural"
+              communicate = edge_tts.Communicate(text, voice, rate="-5%", pitch="-2Hz")
+              
+              raw_output = "raw_ai_voice.mp3"
+              print("Genereren van spraak via Microsoft Neural Voice...")
+              await communicate.save(raw_output)
+
+              sound = AudioSegment.from_file(raw_output)
+              sound = normalize(sound)
+              
+              final_output = "Focus_Fantastique_tts-1.mp3"
+              sound.export(final_output, format="mp3", bitrate="128k")
+
+              if os.path.exists(raw_output):
+                  os.remove(raw_output)
+                  
+              print(f"✓ Nieuwe uitzending gegenereerd: {final_output}")
+
+          asyncio.run(generate_speech())
+          EOF
+
+      - name: Commit and push changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+          git add Focus_Fantastique_tts-1.mp3 Focus_Fantastique_tts.txt || true
+
+          if git diff --cached --quiet; then
+            echo "Geen wijzigingen om te committen."
+          else
+            git commit -m "Update: FocusFantastique Nieuws Update - UTC+2 $(date '+%H:%M')"
+            git push
+          fi
