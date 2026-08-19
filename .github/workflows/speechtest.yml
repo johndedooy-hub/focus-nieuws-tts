@@ -225,5 +225,6 @@ jobs:
             echo "Geen wijzigingen om te committen."
           else
             git commit -m "Update: FocusFantastique Nieuws Update - UTC+2 $(date '+%H:%M')"
-            git push
+            git pull --rebase origin main
+            git push origin main
           fi
