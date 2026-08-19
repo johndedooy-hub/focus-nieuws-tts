@@ -160,10 +160,10 @@ jobs:
               compute_type="int8"
           )
 
-          print("Transcribing Focus_Fantastique_tts.mp3...")
+          print("Transcribing Focus_Fantastique_tts-1.mp3...")
 
           segments, info = model.transcribe(
-              "Focus_Fantastique_tts.mp3",
+              "Focus_Fantastique_tts-1.mp3",
               language="nl",
               beam_size=5,
               vad_filter=True
@@ -220,7 +220,7 @@ jobs:
               
               # Overschrijf het originele mp3-bestand met de nieuwe AI-stemversie
               # Indien gewenst kun je de bestandsnaam hier aanpassen naar een unieke naam
-              sound.export("Focus_Fantastique_tts.mp3", format="mp3", bitrate="128k")
+              sound.export("Focus_Fantastique_tts-1.mp3", format="mp3", bitrate="128k")
               
               # Clean up raw file
               if os.path.exists(raw_output):
@@ -238,10 +238,10 @@ jobs:
 
       - name: Commit and push changes
         run: |
-          if git diff --quiet Focus_Fantastique_tts.mp3 Focus_Fantastique_tts.txt; then
+          if git diff --quiet Focus_Fantastique_tts-1.mp3 Focus_Fantastique_tts.txt; then
             echo "No changes to audio or transcript"
           else
-            git add Focus_Fantastique_tts.mp3 Focus_Fantastique_tts.txt
+            git add Focus_Fantastique_tts-1.mp3 Focus_Fantastique_tts.txt
             git commit -m "Update: FocusFantastique Nieuws Update - UTC+2 $(date '+%H:%M')"
             git push
           fi
