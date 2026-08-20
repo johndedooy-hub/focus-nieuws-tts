@@ -28,10 +28,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg
 
-      - name: Fetch, Process and Trim RSS Audio
+      - name: Fetch Latest RSS Bulletin and Generate Filenames
         env:
           RSS_URL: 'https://www.omnycontent.com/d/playlist/8257a063-6be9-42fa-b892-acd4013b1255/84d4de9f-8ca2-40c5-8d33-b0ce00d6f186/e4c79cb6-51a3-4c08-9573-b0ce00d746db/podcast.rss'
-          OUTPUT_FILE: 'Focus_Fantastique_tts-1.mp3'
           COVER_IMAGE: 'FocusFantastiqueNieuws.jpg'
         run: |
           python3 - <<'EOF'
@@ -43,7 +42,6 @@ jobs:
           from datetime import datetime
 
           rss_url = os.environ['RSS_URL']
-          output_file = os.environ['OUTPUT_FILE']
           cover_image = os.environ['COVER_IMAGE']
 
           print("Ophalen van RSS feed...")
@@ -55,6 +53,13 @@ jobs:
 
           latest_entry = feed.entries[0]
           audio_url = None
+          
+          # Extract bulletin title and date from RSS entry
+          bulletin_title = latest_entry.get('title', 'Nieuws')
+          bulletin_date = latest_entry.get('published', '')
+          
+          print(f"Meest recente bulletin: {bulletin_title}")
+          print(f"Gepubliceerd: {bulletin_date}")
 
           for enclosure in latest_entry.get('enclosures', []):
               if enclosure.type and enclosure.type.startswith('audio/'):
@@ -65,11 +70,17 @@ jobs:
               print("Geen audiobestand gevonden in meest recente entry.")
               exit(1)
 
+          # Generate timestamp-based filenames
+          timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+          output_mp3 = f'Focus_Fantastique_tts_{timestamp}.mp3'
+          output_txt = f'Focus_Fantastique_tts_{timestamp}.txt'
+          temp_audio = 'temp_audio.mp3'
+          processed_orig = 'orig_processed.mp3'
+
           print(f"Downloaden van audio: {audio_url}")
           audio_response = requests.get(audio_url)
           audio_response.raise_for_status()
 
-          temp_audio = 'temp_audio.mp3'
           with open(temp_audio, 'wb') as f:
               f.write(audio_response.content)
 
@@ -90,13 +101,19 @@ jobs:
           normalized_audio = normalize(faded_audio)
 
           # Export the processed original audio as a temporary file (no ID3 tagging here)
-          processed_orig = 'orig_processed.mp3'
           normalized_audio.export(processed_orig, format='mp3', bitrate='128k')
 
           if os.path.exists(temp_audio):
               os.remove(temp_audio)
 
           print("✓ Originele audio succesvol verwerkt (zonder ID3-tagging)!")
+          
+          # Save filenames to environment file for next steps
+          with open(os.environ['GITHUB_ENV'], 'a') as env_file:
+              env_file.write(f"OUTPUT_MP3={output_mp3}\n")
+              env_file.write(f"OUTPUT_TXT={output_txt}\n")
+              env_file.write(f"PROCESSED_AUDIO={processed_orig}\n")
+              env_file.write(f"BULLETIN_TITLE={bulletin_title}\n")
           EOF
 
       - name: Transcribe audio with Whisper (STT)
@@ -106,20 +123,19 @@ jobs:
           import sys
           import os
 
-          # Use the TTS input file name (this step expects the original/processed audio to already exist)
-          input_audio = "Focus_Fantastique_tts-1.mp3"
-          output_text = "Focus_Fantastique_tts-1.txt"
+          processed_audio = os.environ.get('PROCESSED_AUDIO', 'orig_processed.mp3')
+          output_txt = os.environ.get('OUTPUT_TXT', 'Focus_Fantastique_tts.txt')
 
-          if not os.path.exists(input_audio):
-              print(f"Bestand niet gevonden: {input_audio}")
+          if not os.path.exists(processed_audio):
+              print(f"Bestand niet gevonden: {processed_audio}")
               sys.exit(1)
 
           print("Whisper model laden...")
           model = WhisperModel("medium", device="cpu", compute_type="int8")
 
-          print(f"Transcriberen van {input_audio}...")
+          print(f"Transcriberen van {processed_audio}...")
           segments, _ = model.transcribe(
-              input_audio,
+              processed_audio,
               language="nl",
               beam_size=5,
               vad_filter=True
@@ -131,10 +147,10 @@ jobs:
           # Voeg samen tot vloeiende tekst met spaties tussen de delen
           full_text = " ".join(text_parts)
 
-          with open(output_text, "w", encoding="utf-8") as f:
+          with open(output_txt, "w", encoding="utf-8") as f:
               f.write(full_text.strip() + "\n")
 
-          print("✓ Transcriptie compleet (vloeiende tekst)!")
+          print(f"✓ Transcriptie compleet! Opgeslagen als: {output_txt}")
           EOF
 
       - name: Generate High-Quality NL Voice (Maarten Neural TTS)
@@ -153,12 +169,15 @@ jobs:
           import math
 
           async def generate_speech_and_finalize():
-              txt_file = "Focus_Fantastique_tts-1.txt"
-              if not os.path.exists(txt_file):
-                  print("Geen tekstbestand gevonden.")
+              output_txt = os.environ.get('OUTPUT_TXT', 'Focus_Fantastique_tts.txt')
+              output_mp3 = os.environ.get('OUTPUT_MP3', 'Focus_Fantastique_tts.mp3')
+              bulletin_title = os.environ.get('BULLETIN_TITLE', 'FocusFantastique Nieuws')
+
+              if not os.path.exists(output_txt):
+                  print(f"Geen tekstbestand gevonden: {output_txt}")
                   return
 
-              with open(txt_file, "r", encoding="utf-8") as f:
+              with open(output_txt, "r", encoding="utf-8") as f:
                   text = f.read().strip()
 
               if not text:
@@ -180,8 +199,6 @@ jobs:
               # Optional: make a separate voice file before mixing
               voice_file = "voice_only.mp3"
               voice_sound.export(voice_file, format='mp3', bitrate='128k')
-
-              final_output = "Focus_Fantastique_tts-1.mp3"
 
               # If newsbed exists in the repo, mix it under the voice at -15 dB
               newsbed_path = "newsbed-1.mp3"
@@ -205,16 +222,16 @@ jobs:
                   combined = voice_sound
 
               # Export the combined final output
-              combined.export(final_output, format='mp3', bitrate='128k')
+              combined.export(output_mp3, format='mp3', bitrate='128k')
 
               # Now add ID3 tags as the final step (just before finishing)
               timestamp = datetime.now().strftime('%H:%M')
               title = f"FocusFantastique Nieuws Update UTC+2 [{timestamp}]"
 
               try:
-                  audio_file = MP3(final_output)
+                  audio_file = MP3(output_mp3)
               except Exception:
-                  audio_file = MP3(final_output)
+                  audio_file = MP3(output_mp3)
 
               try:
                   audio_file.add_tags()
@@ -222,7 +239,7 @@ jobs:
                   pass
 
               audio_file["TIT2"] = TIT2(encoding=3, text=title)
-              audio_file["TPE1"] = TPE1(encoding=3, text='FocusFantastique Nieuws Update')
+              audio_file["TPE1"] = TPE1(encoding=3, text=bulletin_title)
               audio_file["TALB"] = TALB(encoding=3, text='FocusFantastique Nieuws Update')
 
               cover_image = os.environ.get('COVER_IMAGE')
@@ -243,17 +260,23 @@ jobs:
                   if os.path.exists(f):
                       os.remove(f)
 
-              print(f"✓ Nieuwe uitzending gegenereerd en getagd: {final_output}")
+              print(f"✓ Nieuwe uitzending gegenereerd en getagd: {output_mp3}")
 
           asyncio.run(generate_speech_and_finalize())
           EOF
+
+      - name: Cleanup old temporary files
+        run: |
+          rm -f orig_processed.mp3 2>/dev/null || true
+          echo "Cleanup voltooid"
 
       - name: Commit and push changes
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
 
-          git add Focus_Fantastique_tts-1.mp3 Focus_Fantastique_tts-1.txt || true
+          # Add timestamped files
+          git add Focus_Fantastique_tts_*.mp3 Focus_Fantastique_tts_*.txt || true
 
           if git diff --cached --quiet; then
             echo "Geen wijzigingen om te committen."
