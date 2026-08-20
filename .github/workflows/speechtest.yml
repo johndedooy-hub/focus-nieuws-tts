@@ -70,10 +70,9 @@ jobs:
               print("Geen audiobestand gevonden in meest recente entry.")
               exit(1)
 
-          # Generate timestamp-based filenames
-          timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-          output_mp3 = f'Focus_Fantastique_tts_{timestamp}.mp3'
-          output_txt = f'Focus_Fantastique_tts_{timestamp}.txt'
+          # Use fixed filenames for outputs
+          output_mp3 = 'Focus_Fantastique_tts-1.mp3'
+          output_txt = 'Focus_Fantastique_tts-1.txt'
           temp_audio = 'temp_audio.mp3'
           processed_orig = 'orig_processed.mp3'
 
@@ -124,7 +123,7 @@ jobs:
           import os
 
           processed_audio = os.environ.get('PROCESSED_AUDIO', 'orig_processed.mp3')
-          output_txt = os.environ.get('OUTPUT_TXT', 'Focus_Fantastique_tts.txt')
+          output_txt = os.environ.get('OUTPUT_TXT', 'Focus_Fantastique_tts-1.txt')
 
           if not os.path.exists(processed_audio):
               print(f"Bestand niet gevonden: {processed_audio}")
@@ -164,13 +163,13 @@ jobs:
           from pydub.effects import normalize
           import os
           from mutagen.mp3 import MP3
-          from mutagen.id3 import ID3, TIT2, TPE1, TALB, APIC
+          from mutagen.id3 import ID3, TIT2, TALB, APIC
           from datetime import datetime
           import math
 
           async def generate_speech_and_finalize():
-              output_txt = os.environ.get('OUTPUT_TXT', 'Focus_Fantastique_tts.txt')
-              output_mp3 = os.environ.get('OUTPUT_MP3', 'Focus_Fantastique_tts.mp3')
+              output_txt = os.environ.get('OUTPUT_TXT', 'Focus_Fantastique_tts-1.txt')
+              output_mp3 = os.environ.get('OUTPUT_MP3', 'Focus_Fantastique_tts-1.mp3')
               bulletin_title = os.environ.get('BULLETIN_TITLE', 'FocusFantastique Nieuws')
 
               if not os.path.exists(output_txt):
@@ -239,7 +238,7 @@ jobs:
                   pass
 
               audio_file["TIT2"] = TIT2(encoding=3, text=title)
-              audio_file["TPE1"] = TPE1(encoding=3, text=bulletin_title)
+              # TPE1 (BNR) tag removed per request
               audio_file["TALB"] = TALB(encoding=3, text='FocusFantastique Nieuws Update')
 
               cover_image = os.environ.get('COVER_IMAGE')
@@ -275,8 +274,8 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
 
-          # Add timestamped files
-          git add Focus_Fantastique_tts_*.mp3 Focus_Fantastique_tts_*.txt || true
+          # Add fixed output files
+          git add Focus_Fantastique_tts-1.mp3 Focus_Fantastique_tts-1.txt || true
 
           if git diff --cached --quiet; then
             echo "Geen wijzigingen om te committen."
