@@ -184,8 +184,8 @@ jobs:
                   return
 
               # nl-NL-MaartenNeural: Hoogste kwaliteit natuurlijke NL mannenstem
-              voice = "nl-NL-MaartenNeural"
-              communicate = edge_tts.Communicate(text, voice, style="Newscast", rate="+5%", pitch="+15Hz")
+              voice = "en-US-AndrewMultilingualNeural"
+              communicate = edge_tts.Communicate(text, voice, rate="+5%", pitch="-5Hz")
               raw_output = "raw_ai_voice.mp3"
 
               print("Genereren van spraak via Microsoft Neural Voice...")
