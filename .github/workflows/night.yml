@@ -178,7 +178,14 @@ jobs:
               except Exception:
                   pass
 
-              # REQUIRED for PyTorch 2.6
+              # NEW REQUIRED CLASS (your error)
+              try:
+                  from TTS.tts.models.xtts import XttsArgs
+                  registered.append(XttsArgs)
+              except Exception:
+                  pass
+
+              # Dataset config
               try:
                   from TTS.config.shared_configs import BaseDatasetConfig
                   registered.append(BaseDatasetConfig)
