@@ -156,7 +156,7 @@ jobs:
           from pydub.effects import normalize
           import os
           from mutagen.mp3 import MP3
-          from mutagen.id3 import ID3, TIT2, TALB, APIC
+          from mutagen.id3 import ID3, TIT2, TALB, APIC, ID3NoHeaderError
           from datetime import datetime
           import math
 
@@ -182,10 +182,10 @@ jobs:
                   exit(1)
 
               raw_output = "raw_ai_voice.wav"
-              raw_output_mp3 = "raw_ai_voice.mp3"
 
               print("XTTS-v2 model downloaden en initialiseren...")
-              tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to("cpu")
+              # DO NOT call .to("cpu") on the TTS object from the API — it doesn't exist.
+              tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2")
 
               print("Genereren van Nederlandse spraak via XTTS-v2...")
               tts.tts_to_file(
@@ -221,29 +221,26 @@ jobs:
               timestamp = datetime.now().strftime('%H:%M')
               title = f"FocusFantastique Nieuws Update UTC+2 [{timestamp}]"
 
+              # Use ID3 flow to add tags safely
               try:
-                  audio_file = MP3(output_mp3)
-              except Exception:
-                  audio_file = MP3(output_mp3)
+                  id3 = ID3(output_mp3)
+              except ID3NoHeaderError:
+                  id3 = ID3()
 
-              try:
-                  audio_file.add_tags()
-              except Exception:
-                  pass
-
-              audio_file["TIT2"] = TIT2(encoding=3, text=title)
-              audio_file["TALB"] = TALB(encoding=3, text='FocusFantastique Nieuws Update')
+              # Overwrite/add frames
+              id3.add(TIT2(encoding=3, text=title))
+              id3.add(TALB(encoding=3, text='FocusFantastique Nieuws Update'))
 
               cover_image = os.environ.get('COVER_IMAGE')
               if cover_image and os.path.exists(cover_image):
                   with open(cover_image, 'rb') as img:
-                      audio_file["APIC"] = APIC(
+                      id3.add(APIC(
                           encoding=3, mime='image/jpeg', type=3, desc='Cover', data=img.read()
-                      )
+                      ))
 
-              audio_file.save()
+              id3.save(output_mp3)
 
-              for f in [raw_output, raw_output_mp3, voice_file]:
+              for f in [raw_output, voice_file]:
                   if os.path.exists(f):
                       os.remove(f)
 
