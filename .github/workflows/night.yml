@@ -144,7 +144,9 @@ jobs:
 
           print(f"✓ Transcriptie compleet! Opgeslagen als: {output_txt}")
           EOF
-                - name: Generate High-Quality NL Voice (XTTS-v2 Open-Source)
+          
+      
+      - name: Generate High-Quality NL Voice (XTTS-v2 Open-Source)
         env:
           COVER_IMAGE: 'FocusFantastiqueNieuws.jpg'
           COQUI_TOS_AGREED: '1'
