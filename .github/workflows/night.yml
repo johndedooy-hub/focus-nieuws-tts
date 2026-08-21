@@ -160,6 +160,25 @@ jobs:
           from datetime import datetime
           import math
 
+          # Register the TTS config class with torch.serialization so torch.load can unpickle the checkpoint.
+          # This addresses: "Unsupported global: GLOBAL TTS.tts.configs.xtts_config.XttsConfig"
+          try:
+              import torch
+              from TTS.tts.configs.xtts_config import XttsConfig
+              try:
+                  # add_safe_globals exists in newer torch versions
+                  torch.serialization.add_safe_globals([XttsConfig])
+                  print("Registered XttsConfig with torch.serialization.add_safe_globals()")
+              except AttributeError:
+                  # Fall back if add_safe_globals not available (older torch)
+                  try:
+                      torch.serialization.safe_globals([XttsConfig])
+                      print("Registered XttsConfig with torch.serialization.safe_globals()")
+                  except Exception as e:
+                      print("Could not register XttsConfig for safe loading:", e)
+          except Exception as e:
+              print("Could not import torch or XttsConfig to register safe globals:", e)
+
           def generate_speech_and_finalize():
               output_txt = os.environ.get('OUTPUT_TXT', 'Focus_Fantastique_tts-1.txt')
               output_mp3 = os.environ.get('OUTPUT_MP3', 'Focus_Fantastique_tts-1.mp3')
@@ -185,7 +204,11 @@ jobs:
 
               print("XTTS-v2 model downloaden en initialiseren...")
               # DO NOT call .to("cpu") on the TTS object from the API — it doesn't exist.
-              tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2")
+              try:
+                  tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2")
+              except Exception as e:
+                  print("Fout bij laden van TTS-model:", e)
+                  raise
 
               print("Genereren van Nederlandse spraak via XTTS-v2...")
               tts.tts_to_file(
