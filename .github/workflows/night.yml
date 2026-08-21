@@ -160,24 +160,39 @@ jobs:
           from datetime import datetime
           import math
 
-          # Register the TTS config class with torch.serialization so torch.load can unpickle the checkpoint.
-          # This addresses: "Unsupported global: GLOBAL TTS.tts.configs.xtts_config.XttsConfig"
+          # Register the TTS config/model classes with torch.serialization so torch.load can unpickle the checkpoint.
+          # This addresses errors like:
+          # "Unsupported global: GLOBAL TTS.tts.configs.xtts_config.XttsConfig"
+          # "Unsupported global: GLOBAL TTS.tts.models.xtts.XttsAudioConfig"
           try:
               import torch
-              from TTS.tts.configs.xtts_config import XttsConfig
+              registered = []
               try:
-                  # add_safe_globals exists in newer torch versions
-                  torch.serialization.add_safe_globals([XttsConfig])
-                  print("Registered XttsConfig with torch.serialization.add_safe_globals()")
-              except AttributeError:
-                  # Fall back if add_safe_globals not available (older torch)
+                  from TTS.tts.configs.xtts_config import XttsConfig
+                  registered.append(XttsConfig)
+              except Exception:
+                  pass
+              try:
+                  from TTS.tts.models.xtts import XttsAudioConfig
+                  registered.append(XttsAudioConfig)
+              except Exception:
+                  pass
+
+              if registered:
                   try:
-                      torch.serialization.safe_globals([XttsConfig])
-                      print("Registered XttsConfig with torch.serialization.safe_globals()")
-                  except Exception as e:
-                      print("Could not register XttsConfig for safe loading:", e)
+                      # Preferred in newer torch versions
+                      torch.serialization.add_safe_globals(registered)
+                      print("Registered safe globals via torch.serialization.add_safe_globals()")
+                  except AttributeError:
+                      try:
+                          torch.serialization.safe_globals(registered)
+                          print("Registered safe globals via torch.serialization.safe_globals()")
+                      except Exception as e:
+                          print("Could not register safe globals with torch.serialization:", e)
+              else:
+                  print("No Xtts classes found to register for safe loading.")
           except Exception as e:
-              print("Could not import torch or XttsConfig to register safe globals:", e)
+              print("Could not import torch or register Xtts safe globals:", e)
 
           def generate_speech_and_finalize():
               output_txt = os.environ.get('OUTPUT_TXT', 'Focus_Fantastique_tts-1.txt')
