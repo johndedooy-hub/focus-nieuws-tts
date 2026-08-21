@@ -24,7 +24,7 @@ jobs:
       - name: Install dependencies & FFmpeg
         run: |
           python -m pip install --upgrade pip
-          python -m pip install feedparser pydub mutagen requests python-dateutil faster-whisper TTS
+          python -m pip install "transformers<4.40.0" "scipy<1.13.0" feedparser pydub mutagen requests python-dateutil faster-whisper TTS
           sudo apt-get update
           sudo apt-get install -y ffmpeg
 
@@ -145,7 +145,6 @@ jobs:
           print(f"✓ Transcriptie compleet! Opgeslagen als: {output_txt}")
           EOF
           
-      
       - name: Generate High-Quality NL Voice (XTTS-v2 Open-Source)
         env:
           COVER_IMAGE: 'FocusFantastiqueNieuws.jpg'
@@ -271,4 +270,3 @@ jobs:
             git commit -m "Update: FocusFantastique Nieuws Update - UTC+2 $(date '+%H:%M')"
             git push
           fi
-          
