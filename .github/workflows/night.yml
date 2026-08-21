@@ -160,39 +160,42 @@ jobs:
           from datetime import datetime
           import math
 
-          # Register the TTS config/model classes with torch.serialization so torch.load can unpickle the checkpoint.
-          # This addresses errors like:
-          # "Unsupported global: GLOBAL TTS.tts.configs.xtts_config.XttsConfig"
-          # "Unsupported global: GLOBAL TTS.tts.models.xtts.XttsAudioConfig"
+          # SAFE GLOBALS FIX (PyTorch 2.6)
           try:
               import torch
               registered = []
+
+              # XTTS configs
               try:
                   from TTS.tts.configs.xtts_config import XttsConfig
                   registered.append(XttsConfig)
               except Exception:
                   pass
+
               try:
                   from TTS.tts.models.xtts import XttsAudioConfig
                   registered.append(XttsAudioConfig)
               except Exception:
                   pass
 
+              # REQUIRED for PyTorch 2.6
+              try:
+                  from TTS.config.shared_configs import BaseDatasetConfig
+                  registered.append(BaseDatasetConfig)
+              except Exception:
+                  pass
+
               if registered:
                   try:
-                      # Preferred in newer torch versions
                       torch.serialization.add_safe_globals(registered)
                       print("Registered safe globals via torch.serialization.add_safe_globals()")
                   except AttributeError:
-                      try:
-                          torch.serialization.safe_globals(registered)
-                          print("Registered safe globals via torch.serialization.safe_globals()")
-                      except Exception as e:
-                          print("Could not register safe globals with torch.serialization:", e)
+                      torch.serialization.safe_globals(registered)
+                      print("Registered safe globals via torch.serialization.safe_globals()")
               else:
-                  print("No Xtts classes found to register for safe loading.")
+                  print("Geen XTTS classes gevonden om te registreren.")
           except Exception as e:
-              print("Could not import torch or register Xtts safe globals:", e)
+              print("Kon safe globals niet registreren:", e)
 
           def generate_speech_and_finalize():
               output_txt = os.environ.get('OUTPUT_TXT', 'Focus_Fantastique_tts-1.txt')
@@ -218,7 +221,6 @@ jobs:
               raw_output = "raw_ai_voice.wav"
 
               print("XTTS-v2 model downloaden en initialiseren...")
-              # DO NOT call .to("cpu") on the TTS object from the API — it doesn't exist.
               try:
                   tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2")
               except Exception as e:
@@ -259,13 +261,11 @@ jobs:
               timestamp = datetime.now().strftime('%H:%M')
               title = f"FocusFantastique Nieuws Update UTC+2 [{timestamp}]"
 
-              # Use ID3 flow to add tags safely
               try:
                   id3 = ID3(output_mp3)
               except ID3NoHeaderError:
                   id3 = ID3()
 
-              # Overwrite/add frames
               id3.add(TIT2(encoding=3, text=title))
               id3.add(TALB(encoding=3, text='FocusFantastique Nieuws Update'))
 
@@ -305,3 +305,4 @@ jobs:
             git commit -m "Update: FocusFantastique Nieuws Update - UTC+2 $(date '+%H:%M')"
             git push
           fi
+          
