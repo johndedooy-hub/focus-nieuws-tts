@@ -45,7 +45,6 @@ jobs:
           COQUI_TOS_AGREED: '1'
           COQUI_STUDIO_FORCE_TOS: '1'
         run: |
-          # TOS FIX — SHELL OMGEVING
           export COQUI_TOS_AGREED=1
           export COQUI_STUDIO_FORCE_TOS=1
 
@@ -56,12 +55,20 @@ jobs:
           import feedparser
           from pydub import AudioSegment, effects
           from faster_whisper import WhisperModel
-          from TTS.api import TTS
           from mutagen.id3 import ID3, TIT2, TALB, APIC, ID3NoHeaderError
 
-          # TOS FIX — PYTHON OMGEVING
+          # TOS in Python-omgeving
           os.environ["COQUI_TOS_AGREED"] = "1"
           os.environ["COQUI_STUDIO_FORCE_TOS"] = "1"
+
+          # --- CPML TOS MONKEYPATCH ---
+          from TTS.utils.manage import ModelManager
+
+          def _always_accept_tos(self, output_path):
+              print("CPML TOS automatisch geaccepteerd in CI (geen prompt).")
+              return True
+
+          ModelManager.ask_tos = _always_accept_tos
 
           # SAFE GLOBALS FIX
           import torch
@@ -78,24 +85,31 @@ jobs:
 
           print("XTTS safe globals + TOS OK")
 
-          # PRELOAD XTTS
+          # XTTS & Whisper preload
+          from TTS.api import TTS
           print("XTTS laden...")
           tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2")
 
-          # PRELOAD WHISPER
           print("Whisper laden...")
           whisper = WhisperModel("medium", device="cpu", compute_type="int8")
 
-          # FETCH RSS AUDIO
+          # RSS audio ophalen
           rss_url = os.environ["RSS_URL"]
           feed = feedparser.parse(rss_url)
-          latest = feed.entries[0]
+          if not feed.entries:
+              print("Geen afleveringen gevonden.")
+              raise SystemExit(1)
 
+          latest = feed.entries[0]
           audio_url = None
           for enclosure in latest.get("enclosures", []):
               if enclosure.type and enclosure.type.startswith("audio/"):
                   audio_url = enclosure.href
                   break
+
+          if not audio_url:
+              print("Geen audio gevonden.")
+              raise SystemExit(1)
 
           audio_data = requests.get(audio_url).content
           with open("temp.mp3", "wb") as f:
@@ -103,14 +117,20 @@ jobs:
 
           audio = AudioSegment.from_file("temp.mp3")
 
-          # TRIM + NORMALIZE
+          # Trim + normalize
           trimmed = audio[5400:len(audio) - int(5.9 * 1000)]
           faded = trimmed.fade_in(1000).fade_out(1000)
           normalized = effects.normalize(faded)
           normalized.export("processed.mp3", format="mp3", bitrate="128k")
 
-          # TRANSCRIBE (NO EMPTY LINES)
-          segments, _ = whisper.transcribe("processed.mp3", language="nl", beam_size=5, vad_filter=True)
+          # Whisper zonder lege regels
+          print("Transcriberen...")
+          segments, _ = whisper.transcribe(
+              "processed.mp3",
+              language="nl",
+              beam_size=5,
+              vad_filter=True
+          )
 
           lines = []
           for seg in segments:
@@ -125,20 +145,24 @@ jobs:
           with open("Focus_Fantastique_tts-1.txt", "w", encoding="utf-8") as f:
               f.write(transcript)
 
-          # CLEAN SPEAKER WAV
-          speaker = AudioSegment.from_file("stem_voorbeeld.wav")
-          speaker = effects.normalize(speaker)
-          speaker = speaker.low_pass_filter(9000)
-          speaker = speaker.compress_dynamic_range(threshold=-18.0, ratio=1.2)
-          speaker = speaker.high_pass_filter(120)
-          speaker.export("clean_speaker.wav", format="wav")
+          # Speaker-wav licht schoonmaken
+          if os.path.exists("stem_voorbeeld.wav"):
+              speaker = AudioSegment.from_file("stem_voorbeeld.wav")
+              speaker = effects.normalize(speaker)
+              speaker = speaker.low_pass_filter(9000)
+              speaker = speaker.high_pass_filter(120)
+              speaker.export("clean_speaker.wav", format="wav")
+              speaker_path = "clean_speaker.wav"
+          else:
+              speaker_path = "stem_voorbeeld.wav"
 
-          # XTTS VOICE CLONE
+          # XTTS voice clone
+          print("XTTS voice genereren...")
           speed = float(os.environ.get("XTTS_SPEED", "1.0"))
 
           tts.tts_to_file(
               text=transcript,
-              speaker_wav="clean_speaker.wav",
+              speaker_wav=speaker_path,
               language="nl",
               file_path="raw.wav",
               speed=speed
@@ -147,7 +171,7 @@ jobs:
           voice = AudioSegment.from_file("raw.wav")
           voice = effects.normalize(voice)
 
-          # MIX WITH NEWSBED
+          # Mix met newsbed
           if os.path.exists("newsbed-1.mp3"):
               bed = AudioSegment.from_file("newsbed-1.mp3") - 15
               if len(bed) < len(voice):
@@ -159,7 +183,7 @@ jobs:
 
           final.export("Focus_Fantastique_tts-1.mp3", format="mp3", bitrate="128k")
 
-          # ADD COVER
+          # Cover toevoegen
           try:
               id3 = ID3("Focus_Fantastique_tts-1.mp3")
           except ID3NoHeaderError:
