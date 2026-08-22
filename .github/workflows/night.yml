@@ -242,6 +242,9 @@ jobs:
 
           git add Focus_Fantastique_tts-1.mp3 Focus_Fantastique_tts-1.txt || true
 
+          # FIX: voorkom push-conflict
+          git pull origin main --rebase || true
+
           if git diff --cached --quiet; then
             echo "Geen wijzigingen om te committen."
           else
