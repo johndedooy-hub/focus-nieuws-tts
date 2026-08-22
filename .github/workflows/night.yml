@@ -1,4 +1,4 @@
-name: RSS to Text to XTTSv2
+name: RSS to Text to XTTS2v2
 
 on:
   workflow_dispatch:
@@ -25,7 +25,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install torchcodec
-          python -m pip install "transformers<4.40.0" "scipy<1.13.0" feedparser pydub mutagen requests python-dateutil faster-whisper TTS soundfile
+          python -m pip install "transformers<4.40.0" "scipy<1.13.0" feedparser pydub mutagen requests python-dateutil faster-whisper TTS soundfile numpy
           sudo apt-get update
           sudo apt-get install -y ffmpeg
           
@@ -122,11 +122,13 @@ jobs:
         run: |
           python3 - <<'EOF'
           from TTS.api import TTS
+          from TTS.utils.text.tokenizer import split_into_sentences
           from pydub import AudioSegment
           from pydub.effects import normalize
           import os
           import math
           import soundfile as sf
+          import numpy as np
           from mutagen.id3 import ID3, TIT2, TALB, APIC, ID3NoHeaderError
 
           # SAFE GLOBALS FIX (PyTorch 2.6)
@@ -173,21 +175,37 @@ jobs:
 
           # Laad de API facade
           tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2")
-          
-          # Haal het onderliggende XTTS model direct op om de speed bug te omzeilen
           xtts_model = tts.synthesizer.tts_model
 
-          print("Genereren van audio met werkende speed parameter via het model...")
-          outputs = xtts_model.synthesize(
-              text=text,
-              config=xtts_model.config,
-              speaker_wav=speaker_wav,
-              language="nl",
-              speed=1.35  # Pas hier de snelheid aan (1.0 = standaard, 1.35 = 35% sneller)
-          )
+          # Split de tekst netjes op in zinnen om de 400 token limiet te voorkomen
+          sentences = split_into_sentences(text, "nl")
+          print(f"Tekst opgeknipt in {len(sentences)} zinnen voor stabiele verwerking.")
 
-          # Schrijf de gegenereerde numpy array weg als WAV (XTTS v2 gebruikt standaard 24000Hz)
-          sf.write(raw_output, outputs["wav"], 24000)
+          all_wav_chunks = []
+
+          # Genereer audio per zin met de werkende speed parameter
+          for idx, sentence in enumerate(sentences):
+              sentence = sentence.strip()
+              if not sentence:
+                  continue
+                  
+              print(f"Verwerken zin {idx+1}/{len(sentences)}: {sentence[:30]}...")
+              outputs = xtts_model.synthesize(
+                  text=sentence,
+                  config=xtts_model.config,
+                  speaker_wav=speaker_wav,
+                  language="nl",
+                  speed=1.35  # Snelheid werkt hier perfect! (1.35 = 35% sneller)
+              )
+              all_wav_chunks.append(outputs["wav"])
+
+          # Voeg alle gegenereerde audio-arrays samen tot 1 bestand
+          if all_wav_chunks:
+              final_wav = np.concatenate(all_wav_chunks)
+              sf.write(raw_output, final_wav, 24000)
+          else:
+              print("Fout: Geen audio gegenereerd.")
+              exit(1)
 
           voice_sound = AudioSegment.from_file(raw_output)
           voice_sound = normalize(voice_sound)
