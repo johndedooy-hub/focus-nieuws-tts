@@ -134,7 +134,7 @@ jobs:
         env:
           COVER_IMAGE: 'FocusFantastiqueNieuws.jpg'
           COQUI_TOS_AGREED: '1'
-          XTTS_SPEED: '1.35'
+          XTTS_SPEED: '2.5'
         run: |
           python3 - <<'EOF'
           from TTS.api import TTS
