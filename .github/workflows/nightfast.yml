@@ -1,4 +1,4 @@
-name: RSS to Text to XTTSv2 FAST
+name: RSS to Text FAST
 
 on:
   workflow_dispatch:
@@ -45,12 +45,23 @@ jobs:
           COQUI_TOS_AGREED: '1'
           COQUI_STUDIO_FORCE_TOS: '1'
         run: |
+          # TOS FIX — SHELL OMGEVING
+          export COQUI_TOS_AGREED=1
+          export COQUI_STUDIO_FORCE_TOS=1
+
           python3 - <<'EOF'
-          import os, math, requests, feedparser
+          import os
+          import math
+          import requests
+          import feedparser
           from pydub import AudioSegment, effects
           from faster_whisper import WhisperModel
           from TTS.api import TTS
           from mutagen.id3 import ID3, TIT2, TALB, APIC, ID3NoHeaderError
+
+          # TOS FIX — PYTHON OMGEVING
+          os.environ["COQUI_TOS_AGREED"] = "1"
+          os.environ["COQUI_STUDIO_FORCE_TOS"] = "1"
 
           # SAFE GLOBALS FIX
           import torch
@@ -65,8 +76,14 @@ jobs:
               BaseDatasetConfig
           ])
 
-          # PRELOAD MODELS
+          print("XTTS safe globals + TOS OK")
+
+          # PRELOAD XTTS
+          print("XTTS laden...")
           tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2")
+
+          # PRELOAD WHISPER
+          print("Whisper laden...")
           whisper = WhisperModel("medium", device="cpu", compute_type="int8")
 
           # FETCH RSS AUDIO
@@ -108,22 +125,12 @@ jobs:
           with open("Focus_Fantastique_tts-1.txt", "w", encoding="utf-8") as f:
               f.write(transcript)
 
-          # CLEAN SPEAKER WAV FOR XTTS
+          # CLEAN SPEAKER WAV
           speaker = AudioSegment.from_file("stem_voorbeeld.wav")
-
-          # Decompress (expand dynamics)
           speaker = effects.normalize(speaker)
-
-          # Light de-ess (reduce sibilance)
           speaker = speaker.low_pass_filter(9000)
-
-          # Remove broadcast pumping
           speaker = speaker.compress_dynamic_range(threshold=-18.0, ratio=1.2)
-
-          # Reduce reverb
           speaker = speaker.high_pass_filter(120)
-
-          # Export cleaned speaker
           speaker.export("clean_speaker.wav", format="wav")
 
           # XTTS VOICE CLONE
