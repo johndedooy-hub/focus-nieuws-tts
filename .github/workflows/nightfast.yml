@@ -122,7 +122,7 @@ jobs:
           normalized.export("processed.mp3", format="mp3", bitrate="128k")
 
           # -----------------------------
-          # TRANSCRIBE (FAST)
+          # TRANSCRIBE (NO EMPTY LINES)
           # -----------------------------
           print("Transcriberen...")
           segments, _ = whisper.transcribe("processed.mp3", language="nl", beam_size=5, vad_filter=True)
@@ -132,11 +132,14 @@ jobs:
               text = seg.text.strip()
               if not text:
                   continue
+
               if not text.endswith((".", "!", "?")):
                   text += "."
+
               lines.append(text)
 
-          transcript = "\n\n".join(lines)
+          # GEEN lege regels meer
+          transcript = "\n".join(lines)
 
           with open("Focus_Fantastique_tts-1.txt", "w", encoding="utf-8") as f:
               f.write(transcript)
