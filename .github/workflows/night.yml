@@ -179,8 +179,8 @@ jobs:
               text=text,
               speaker_wav=speaker_wav,
               language="nl",
-              speed:"2",
-              file_path=raw_output
+              file_path=raw_output,
+              speed=1.35  # Pas hier de snelheid aan (bijv. 1.35 is 35% sneller)
           )
 
           voice_sound = AudioSegment.from_file(raw_output)
