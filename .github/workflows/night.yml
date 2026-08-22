@@ -179,7 +179,7 @@ jobs:
               text=text,
               speaker_wav=speaker_wav,
               language="nl",
-              rate=1.5,
+              speed=+1.5,
               file_path=raw_output
           )
 
