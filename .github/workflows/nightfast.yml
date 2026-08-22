@@ -43,6 +43,7 @@ jobs:
           COVER_IMAGE: 'FocusFantastiqueNieuws.jpg'
           XTTS_SPEED: '1.35'
           COQUI_TOS_AGREED: '1'
+          COQUI_STUDIO_FORCE_TOS: '1'
         run: |
           python3 - <<'EOF'
           import os, math, requests, feedparser
