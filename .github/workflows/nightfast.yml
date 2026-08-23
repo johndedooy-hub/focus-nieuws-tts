@@ -113,35 +113,20 @@ jobs:
               vad_filter=True
           )
 
-          # --- WHISPER FIX: ZINNEN SAMENVOEGEN ---
+          # --- NIEUWS OP 1 REGEL ---
           raw_lines = [seg.text.strip() for seg in segments if seg.text.strip()]
-          merged = []
 
-          buffer = ""
-          for line in raw_lines:
-              # Voeg samen als zin te kort is
-              if len(line) < 30:
-                  buffer += " " + line
-                  continue
+          # Combineer alle tekst in één vloeiende regel
+          one_line = " ".join(raw_lines)
 
-              # Als buffer gevuld is → samenvoegen
-              if buffer:
-                  merged.append((buffer + " " + line).strip())
-                  buffer = ""
-              else:
-                  merged.append(line)
+          # Dubbele spaties verwijderen
+          one_line = " ".join(one_line.split())
 
-          if buffer:
-              merged.append(buffer.strip())
+          # Punt toevoegen als nodig
+          if not one_line.endswith((".", "!", "?")):
+              one_line += "."
 
-          # Zorg dat elke zin eindigt op een punt
-          final_lines = []
-          for line in merged:
-              if not line.endswith((".", "!", "?")):
-                  line += "."
-              final_lines.append(line)
-
-          transcript = "\n".join(final_lines)
+          transcript = one_line
 
           with open("Focus_Fantastique_tts-1.txt", "w", encoding="utf-8") as f:
               f.write(transcript)
