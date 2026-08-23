@@ -155,7 +155,7 @@ jobs:
           voice = effects.normalize(voice)
 
           if os.path.exists("newsbed-1.mp3"):
-              bed = AudioSegment.from_file("newsbed-1.mp3") - 15
+              bed = AudioSegment.from_file("newsbed-1.mp3") - 20
               if len(bed) < len(voice):
                   bed *= math.ceil(len(voice) / len(bed))
               bed = bed[:len(voice)]
