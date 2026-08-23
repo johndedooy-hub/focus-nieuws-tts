@@ -156,7 +156,7 @@ jobs:
           speaker = speaker.high_pass_filter(120)
           speaker.export("clean_speaker.wav", format="wav")
 
-          speed = float(os.environ.get("XTTS_SPEED", "1.0"))
+          speed = float(os.environ.get("XTTS_SPEED", "1.35"))
 
           tts.tts_to_file(
               text=transcript,
