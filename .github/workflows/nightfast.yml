@@ -109,7 +109,7 @@ jobs:
           segments, _ = whisper.transcribe(
               "processed.mp3",
               language="nl",
-              beam_size=4,
+              beam_size=3,
               vad_filter=True
           )
 
@@ -138,7 +138,7 @@ jobs:
           speaker = AudioSegment.from_file("stem_voorbeeld.mp3")
           speaker = effects.normalize(speaker)
           speaker = speaker.low_pass_filter(9000)
-          speaker = speaker.high_pass_filter(120)
+          speaker = speaker.high_pass_filter(100)
           speaker.export("clean_speaker.wav", format="wav")
 
           speed = float(os.environ.get("XTTS_SPEED", "1.50"))
