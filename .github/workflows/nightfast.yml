@@ -194,6 +194,7 @@ jobs:
             echo "Geen wijzigingen om te committen."
           else
             git commit -m "FAST Update: FocusFantastique Nieuws Update - UTC+2 $(date '+%H:%M')"
+            git pull
             git push
           fi
           
