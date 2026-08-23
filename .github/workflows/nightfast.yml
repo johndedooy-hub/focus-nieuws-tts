@@ -189,12 +189,12 @@ jobs:
 
           git add Focus_Fantastique_tts-1.mp3 Focus_Fantastique_tts-1.txt || true
           git pull origin main --rebase || true
+          git pull
 
           if git diff --cached --quiet; then
             echo "Geen wijzigingen om te committen."
           else
             git commit -m "FAST Update: FocusFantastique Nieuws Update - UTC+2 $(date '+%H:%M')"
-            git pull
             git push
           fi
           
