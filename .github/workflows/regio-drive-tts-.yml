@@ -65,7 +65,7 @@ jobs:
           output_file = "Focus-Regio-News.mp3"
 
           voice = "nl-NL-FennaNeural"
-          rate = "-2%"
+          rate = "+2%"
 
           print("Reading transcript...")
 
