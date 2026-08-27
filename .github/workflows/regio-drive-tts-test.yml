@@ -30,15 +30,15 @@ jobs:
 
       - name: Download transcript from website
         run: |
-          wget --quiet "https://www.focusfantastique.nl/ff-regioagenda.txt" -O Focus-Regio-Blok.txt
+          wget --quiet "https://www.focusfantastique.nl/ff-regioagenda.txt" -O ff-regioagenda.txt
           
-          if [ ! -f "Focus-Regio-Blok.txt" ]; then
+          if [ ! -f "ff-regioagenda.txt" ]; then
             echo "ERROR: Failed to download transcript from website"
             exit 1
           fi
           
           echo "Transcript downloaded successfully:"
-          ls -lh Focus-Regio-Blok.txt
+          ls -lh ff-regioagenda.txt
 
       - name: Check newsbed
         run: |
@@ -59,7 +59,7 @@ jobs:
           import re
           from pydub import AudioSegment
 
-          input_file = "Focus-Regio-Blok.txt"
+          input_file = "ff-regioagenda.txt"
           newsbed_file = "newsbed.mp3"
           output_file = "Focus-Regio-News.mp3"
 
