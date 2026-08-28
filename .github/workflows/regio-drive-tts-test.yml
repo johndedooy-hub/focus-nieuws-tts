@@ -1,8 +1,8 @@
-name: Focus Regio News TTS TEST TXT
+name: Focus Regio News TTS to TXT FF1
 
 on:
   workflow_dispatch:
-
+  
 jobs:
   generate-news-audio:
     runs-on: ubuntu-latest
