@@ -24,7 +24,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install --upgrade git+https://github.com/rany2/edge-tts.git pydub mutagen
+          pip install --upgrade git+https://github.com/rany2/edge-tts.git pydub mutagen requests
           sudo apt-get update
           sudo apt-get install -y ffmpeg
 
@@ -57,6 +57,7 @@ jobs:
           import edge_tts
           import os
           import re
+          import requests
           from pydub import AudioSegment
 
           input_file = "ff-regioagenda.txt"
@@ -65,6 +66,18 @@ jobs:
 
           voice = "nl-NL-FennaNeural"
           rate = "+2%"
+
+          def get_proxies():
+              proxies = []
+              # Haal een lijst van publieke HTTPS/SOCKS proxies op om Azure IP-blokkades te omzeilen
+              try:
+                  res = requests.get("https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=5000&country=all&ssl=yes&anonymity=all", timeout=10)
+                  if res.status_code == 200:
+                      lines = [f"http://{p.strip()}" for p in res.text.splitlines() if p.strip()]
+                      proxies.extend(lines[:20])
+              except Exception as e:
+                  print(f"Waarschuwing bij ophalen proxylijst: {e}")
+              return proxies
 
           print("Reading transcript...")
 
@@ -116,9 +129,24 @@ jobs:
           if current_chunk:
               chunks.append(current_chunk)
 
-          async def generate_chunk(text, filename):
-              communicate = edge_tts.Communicate(text, voice, rate=rate)
-              await communicate.save(filename)
+          proxy_pool = get_proxies()
+
+          async def generate_chunk_with_retry(text, filename):
+              # Probeer eerst direct; probeer bij 403 / connectiefout roterende proxies
+              attempts = [None] + proxy_pool
+              for p in attempts:
+                  try:
+                      if p:
+                          print(f"Poging via proxy: {p}")
+                          communicate = edge_tts.Communicate(text, voice, rate=rate, proxy=p)
+                      else:
+                          communicate = edge_tts.Communicate(text, voice, rate=rate)
+                      await communicate.save(filename)
+                      return
+                  except Exception as err:
+                      print(f"Fout ({p if p else 'direct'}): {err}")
+                      await asyncio.sleep(1)
+              raise RuntimeError(f"Genereren van {filename} is mislukt via alle beschikbare verbindingen.")
 
           async def main():
               audio_parts = []
@@ -126,7 +154,7 @@ jobs:
               for index, chunk in enumerate(chunks, start=1):
                   filename = f"tts_part_{index}.mp3"
                   print(f"Generating part {index}/{len(chunks)}...")
-                  await generate_chunk(chunk, filename)
+                  await generate_chunk_with_retry(chunk, filename)
                   audio_parts.append(filename)
 
               final_audio = AudioSegment.empty()
