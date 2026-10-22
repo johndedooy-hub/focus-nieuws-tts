@@ -1,30 +1,31 @@
-Het lijkt erop dat er geen grote schade is aangericht via het veiligheidslek op internet,
-zei een expert bij Pau en de Wit.
-Wel zouden criminelen massaal hebben gezocht naar zwakke plekken.
-Daarom moeten bedrijven de veiligheidsupdate van PHP snel installeren.
-Een aantal sites is nog steeds offline, zoals Meld Misdaad Anoniem.
-De nieuwe schiphoorregels gaan over ruim een week in, maar milieuclubs en omwonenden
-willen ze van tafel en stappen naar de rechter.
-Greenpeace en Milieudefensie vinden dat overlast, die eerst illegaal was, met nieuwe regels
-wordt toegestaan.
-Ze willen ook minder vluchten, maar de regels staan er juist meer toe.
-Er mag vandaag niet worden gedemonstreerd in Delen van Parijs.
-Politie wil voorkomen dat het weer uit de hand loopt.
-Het demonstratieverbod geldt vanaf vanmorgen 8 uur tot 8 uur vanavond.
-Na rellen van vorige week gold in Delen van Parijs ook al een avondklok, net als
-in een paar andere Franse steden.
-Het aantal beginnende ondernemers schiet omhoog.
-Volgens de Kamer van Koophandel kwamen uit het afgelopen kartaal ruim 60.000 nieuwe
-bedrijven bij.
-En dat zijn er veel meer dan in de jaren ervoor.
-De overgrote meerderheid begon voor zichzelf als ZZP'er, vaak met een adviesbureau of
-een accountantskantoor.
-Feyenoord heeft in de Champions League gisteravond met 1-0 verloren van Real Betis.
-Feyenoord trainer Van Bronckhorst vond dat een gelijk spel verdiend was geweest,
-maar hij zei dat op dit niveau een wedstrijd wordt beslist op details.
-En dat gebeurde, want de Spanjaarden schoorden uit een strafschop na een ongelukkige
-hensbal.
+Hoewel er een update is van PHP software om een veiligheidslek te repareren zijn nog
+altijd een paar belangrijke websites offline, zoals die van Meld Misdaad Anoniem en het
+RIVM.
+Gisteren bleek dat door het lek websites kwetsbaar waren voor hackers en veel gingen
+uit voerzorg uit de lucht.
+De bouwsector moeten de komende jaren ruim 70.000 mensen bijzien te krijgen
+om huizen te bouwen, maar ook het stroomnet uit te bereiden.
+Vooral door de upgrade bij Defensie is veel nieuw personeel nodig, maar overal zijn al
+langer tekorten.
+Experts zeggen daarom dat waarschijnlijk niet alle doelen tegelijk gehaald gaan worden.
+De hoge benzine- en dieselprijzen zorgen voor een boost in de verkoop van elektrische
+en hybride auto's.
+1 op de 5 auto's die in Europa worden verkocht rijdt op stroom, en dat was
+vorig jaar nog 1 op de 6.
+Vooral Chinese autobouwers profiteren daarvan.
+De merken Leapmotor en Cherry verkochten veel meer auto's.
+Een kopen huis werd in september iets duurder dan een jaar eerder, maar de prijsstijging
+gaat niet meer zo hard als voorheen, zien het CBS en het Cadaster.
+Er werden vorige maand iets minder huizen verkocht dan in september vorig jaar en
+de gemiddelde prijs steeg iets naar ruim 504.000 euro.
+In een aantal delen van Parijs geldt vandaag tussen 8 uur vanmorgen en 8 uur vanavond
+een demonstratieverbod.
+Moet escalaties zoals afgelopen weekend voorkomen.
+Op een aantal plekken, en ook in een paar andere Franse steden, goalt al een avondklok,
+en vooral zaterdag staan weer nieuwe grote demonstraties gepland.
 En dan nu het weer van WeerOnline.
-In het hele land kan het vermogen stevig regenen, met kans op onweer en zware windstoten.
-Vanmiddag wordt het vanuit het westen droog en zonnig, bij 13 of 14 graden.
-En tot zover het ANB-nieuws.
+Vanochtend trekken stevige buien vanaf de kust het land op, lokaal met onweer
+en zware windstoten.
+Vermiddag trekken de buien naar Duitsland weg, en de wind neemt af, de zon breekt
+door en het wordt 13 tot 14 graden.
+En tot zover het ANP nieuws.
